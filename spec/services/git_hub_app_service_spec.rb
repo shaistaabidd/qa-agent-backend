@@ -39,6 +39,15 @@ RSpec.describe GitHubAppService do
     end
   end
 
+  describe '#repository_names' do
+    it "returns the installation's repos as sorted owner/name strings" do
+      allow(installation_client).to receive(:list_app_installation_repositories)
+        .and_return(repositories: [{ full_name: 'acme/web' }, { full_name: 'acme/api' }])
+
+      expect(service.repository_names).to eq(%w[acme/api acme/web])
+    end
+  end
+
   context 'when GITHUB_APP_ID is not configured' do
     before { allow(ENV).to receive(:fetch).with('GITHUB_APP_ID', nil).and_return(nil) }
 

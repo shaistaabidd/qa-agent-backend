@@ -21,34 +21,56 @@ RSpec.describe 'GraphQL: GitHub connection and scope features', type: :request d
   end
 
   describe 'connectGithub' do
-    it 'lets a project admin connect a repo' do
+    let(:github_service) { instance_double(GitHubAppService, repository_names: ['acme/checkout-app']) }
+
+    before do
+      create(:integration, project: project, external_account_id: '999', repo_full_name: nil)
+      allow(GitHubAppService).to receive(:for_installation).with('999').and_return(github_service)
+    end
+
+    it 'lets a project admin connect a repo from the installation' do
       result = graphql(<<~GQL, token: admin_token)
         mutation {
-          connectGithub(input: {
-            projectId: "#{project.id}",
-            installationId: "999",
-            repoFullName: "acme/checkout-app"
-          }) {
-            project { repoConnected }
+          connectGithub(input: { projectId: "#{project.id}", repoFullName: "acme/checkout-app" }) {
+            project { repoConnected repoFullName }
           }
         }
       GQL
 
-      expect(result.dig('data', 'connectGithub', 'project', 'repoConnected')).to be true
+      expect(result.dig('data', 'connectGithub', 'project')).to eq(
+        'repoConnected' => true, 'repoFullName' => 'acme/checkout-app'
+      )
     end
 
     it 'forbids a non-admin member with a 403' do
       result = graphql(<<~GQL, token: member_token)
         mutation {
-          connectGithub(input: {
-            projectId: "#{project.id}",
-            installationId: "999",
-            repoFullName: "acme/checkout-app"
-          }) {
+          connectGithub(input: { projectId: "#{project.id}", repoFullName: "acme/checkout-app" }) {
             project { id }
           }
         }
       GQL
+
+      expect(result.dig('errors', 0, 'code')).to eq(403)
+    end
+  end
+
+  describe 'githubInstallUrl' do
+    before { allow(ENV).to receive(:fetch).and_call_original }
+
+    it 'returns the GitHub App install URL with a signed state for the admin' do
+      allow(ENV).to receive(:fetch).with('GITHUB_APP_SLUG', nil).and_return('qa-agent')
+
+      result = graphql("{ githubInstallUrl(projectId: \"#{project.id}\") }", token: admin_token)
+
+      url = URI.parse(result.dig('data', 'githubInstallUrl'))
+      expect(url.to_s).to start_with('https://github.com/apps/qa-agent/installations/new')
+      state = Rack::Utils.parse_query(url.query)['state']
+      expect(GitHubInstallState.verify(state)).to eq('project_id' => project.id, 'user_id' => admin.id)
+    end
+
+    it 'forbids a non-admin member' do
+      result = graphql("{ githubInstallUrl(projectId: \"#{project.id}\") }", token: member_token)
 
       expect(result.dig('errors', 0, 'code')).to eq(403)
     end

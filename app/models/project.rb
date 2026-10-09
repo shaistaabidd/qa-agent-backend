@@ -16,6 +16,23 @@ class Project < ApplicationRecord
   # hit a FK violation trying to delete the row this project still points to.
   before_destroy :clear_repo_connection, prepend: true
 
+  # Stores the GitHub App installation; the repo is picked separately. A
+  # different installation can't see the old repo, so that link is dropped.
+  def attach_github_installation!(installation_id)
+    integration = integrations.find_or_initialize_by(integration_type: :github)
+    installation_changed = integration.external_account_id != installation_id.to_s
+
+    transaction do
+      update!(repo_connection: nil) if installation_changed && repo_connection
+      integration.update!(
+        external_account_id: installation_id.to_s,
+        repo_full_name: installation_changed ? nil : integration.repo_full_name,
+        scope: 'contents:read'
+      )
+    end
+    self
+  end
+
   private
 
   def clear_repo_connection

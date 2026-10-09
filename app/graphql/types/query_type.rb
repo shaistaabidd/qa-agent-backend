@@ -33,5 +33,8 @@ module Types
     field :findings_summary, resolver: Queries::Dashboard::FindingsSummary
     field :coverage, resolver: Queries::Dashboard::Coverage
     field :role_credentials_for_project, resolver: Queries::RoleCredentials::ForProject
+    field :github_install_url, resolver: Queries::Integrations::GithubInstallUrl
+    field :github_authorize_url, resolver: Queries::Integrations::GithubAuthorizeUrl
+    field :github_repositories, resolver: Queries::Integrations::GithubRepositories
   end
 end

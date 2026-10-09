@@ -1,22 +1,19 @@
-module Mutations
+module Queries
   module Integrations
-    class ConnectGithub < BaseMutation
+    class GithubAuthorizeUrl < Queries::BaseQuery
       include AuthenticableApiUser
       include PermissionHandler
 
       argument :project_id, ID, required: true
-      argument :repo_full_name, String, required: true
 
-      type Types::Projects::ProjectPayload
+      type String, null: false
 
       def resolve(**params)
         authenticate_user!
         project = Project.find(params[:project_id])
         authenticate_project_admin!(project)
 
-        result = ::Integrations::ConnectGithub.call(project: project, repo_full_name: params[:repo_full_name])
-
-        result.success? ? result : execution_error(message: result.error)
+        GitHubUserAuthorization.authorize_url(GitHubInstallState.generate(project: project, user: current_user))
       rescue GraphQL::ExecutionError
         raise
       rescue ActiveRecord::RecordNotFound

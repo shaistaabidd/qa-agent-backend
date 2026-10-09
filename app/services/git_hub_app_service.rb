@@ -11,6 +11,14 @@ class GitHubAppService
     new(installation_id)
   end
 
+  # GitHub's own install screen: the user picks the account/org and which
+  # repos to grant, then GitHub redirects back to the app's callback URL with
+  # installation_id (+ an OAuth code, see GitHubUserAuthorization) and state.
+  def self.install_url(state)
+    slug = ENV.fetch('GITHUB_APP_SLUG', nil).presence || raise(ConfigurationError, 'GITHUB_APP_SLUG is not configured')
+    "https://github.com/apps/#{slug}/installations/new?state=#{CGI.escape(state)}"
+  end
+
   def initialize(installation_id)
     @installation_id = installation_id
   end
@@ -31,12 +39,17 @@ class GitHubAppService
     []
   end
 
+  # Full names ("owner/name") of every repo the installation was granted.
+  def repository_names
+    client.list_app_installation_repositories(per_page: 100)[:repositories].map { |repo| repo[:full_name] }.sort
+  end
+
   private
 
   attr_reader :installation_id
 
   def client
-    @client ||= Octokit::Client.new(bearer_token: installation_access_token)
+    @client ||= Octokit::Client.new(bearer_token: installation_access_token, auto_paginate: true)
   end
 
   def installation_access_token
