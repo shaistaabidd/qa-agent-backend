@@ -116,5 +116,80 @@ RSpec.describe 'GraphQL: findings and ClickUp connection', type: :request do
       titles = result.dig('data', 'findingsForProject', 'allData').pluck('title')
       expect(titles).to include('Checkout button unresponsive')
     end
+
+    describe 'issue grouping' do
+      let(:query) do
+        "query { findingsForProject(projectId: \"#{project.id}\") " \
+          '{ allData { title runId timesSeen issueStatus firstSeenAt lastSeenAt } } }'
+      end
+
+      def finished_run
+        create(:run, project: project, scope_feature: scope_feature, status: :completed)
+      end
+
+      def issues
+        graphql(query, token: admin_token).dig('data', 'findingsForProject', 'allData').index_by { |i| i['title'] }
+      end
+
+      it 'shows one row per issue with the latest occurrence and its stats' do
+        first, second = finished_run, finished_run
+        create(:finding, run: first, title: 'TypeError: x', fingerprint: 'js:x')
+        create(:finding, run: second, title: 'TypeError: x', fingerprint: 'js:x')
+
+        issue = issues.fetch('TypeError: x')
+        expect(issue).to include('runId' => second.id.to_s, 'timesSeen' => 2, 'issueStatus' => 'ongoing')
+      end
+
+      it 'marks issues new, resolved and regressed' do
+        first, second, third = finished_run, finished_run, finished_run
+        create(:finding, run: first, title: 'Gone', fingerprint: 'gone')
+        create(:finding, run: first, title: 'Flaky', fingerprint: 'flaky')
+        create(:finding, run: third, title: 'Flaky', fingerprint: 'flaky')
+        create(:finding, run: third, title: 'Fresh', fingerprint: 'fresh')
+        expect(second).to be_persisted
+
+        expect(issues.transform_values { |i| i['issueStatus'] }).to include(
+          'Gone' => 'resolved', 'Flaky' => 'regressed', 'Fresh' => 'new'
+        )
+      end
+
+      it 'goes back to ongoing once a regressed issue keeps happening' do
+        first, gap, back, again = finished_run, finished_run, finished_run, finished_run
+        [first, back, again].each { |run| create(:finding, run: run, title: 'Flaky', fingerprint: 'flaky') }
+        expect(gap).to be_persisted
+
+        expect(issues.fetch('Flaky')['issueStatus']).to eq('ongoing')
+      end
+
+      it "doesn't resolve an issue in a run that never reached its page or tab" do
+        seen = finished_run
+        create(:finding, run: seen, title: 'N+1', fingerprint: 'n1', details: { 'view' => '/projects/:id › Issues' })
+        create(:run, project: project, scope_feature: scope_feature, status: :completed,
+                     summary: { 'views' => ['/projects/:id', '/projects/:id › Credentials'] })
+
+        expect(issues.fetch('N+1')['issueStatus']).to eq('new')
+      end
+
+      it 'resolves it once a run reaches that view and the issue is gone' do
+        seen = finished_run
+        create(:finding, run: seen, title: 'N+1', fingerprint: 'n1', details: { 'view' => '/projects/:id › Issues' })
+        create(:run, project: project, scope_feature: scope_feature, status: :completed,
+                     summary: { 'views' => ['/projects/:id', '/projects/:id › Issues'] })
+
+        expect(issues.fetch('N+1')['issueStatus']).to eq('resolved')
+      end
+
+      it 'lists every finding of one run when filtered by run' do
+        target = finished_run
+        create(:finding, run: target, title: 'A', fingerprint: 'a')
+        create(:finding, run: finished_run, title: 'A', fingerprint: 'a')
+
+        result = graphql(
+          "query { findingsForProject(projectId: \"#{project.id}\", runId: \"#{target.id}\") { allData { runId } } }",
+          token: admin_token
+        )
+        expect(result.dig('data', 'findingsForProject', 'allData')).to eq([{ 'runId' => target.id.to_s }])
+      end
+    end
   end
 end

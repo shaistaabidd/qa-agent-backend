@@ -6,6 +6,8 @@ module Mutations
       argument :run_id, ID, required: true
       argument :status, Types::Enums::RunResultStatusEnum, required: true
       argument :audit_log_entries, [Types::Runs::AuditLogEntryAttributes], required: false, default_value: []
+      argument :network_log, GraphQL::Types::JSON, required: false
+      argument :summary, GraphQL::Types::JSON, required: false
 
       type Types::Runs::RunPayload
 
@@ -16,7 +18,9 @@ module Mutations
         result = ::Runs::ReceiveResult.call(
           run: run,
           status: params[:status],
-          audit_log_entries: params[:audit_log_entries]
+          audit_log_entries: params[:audit_log_entries],
+          network_log: params[:network_log],
+          summary: params[:summary]
         )
 
         result.success? ? result : execution_error(message: result.error)

@@ -11,6 +11,9 @@ module Mutations
       argument :repro_steps, [String], required: true
       argument :severity, Types::Enums::FindingSeverityEnum, required: true
       argument :screenshot, ApolloUploadServer::Upload, required: false
+      argument :category, String, required: false
+      argument :details, GraphQL::Types::JSON, required: false
+      argument :fingerprint, String, required: false
 
       type Types::Findings::FindingPayload
 
@@ -23,7 +26,10 @@ module Mutations
           title: params[:title],
           repro_steps: params[:repro_steps],
           severity: params[:severity],
-          screenshot: params[:screenshot]
+          screenshot: params[:screenshot],
+          category: params[:category],
+          details: params[:details],
+          fingerprint: params[:fingerprint]
         )
 
         result.success? ? result : execution_error(message: result.error)

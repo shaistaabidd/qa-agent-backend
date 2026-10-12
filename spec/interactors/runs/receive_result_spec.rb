@@ -15,6 +15,15 @@ RSpec.describe Runs::ReceiveResult do
     expect(run.audit_log_entries.pluck(:action_taken)).to contain_exactly('clicked')
   end
 
+  it 'stores the network log and summary' do
+    network_log = [{ 'method' => 'POST', 'url' => '/graphql', 'status' => 200, 'durationMs' => 42 }]
+
+    described_class.call(run: run, status: 'completed', network_log: network_log, summary: { 'pages' => 2 })
+
+    expect(run.reload.network_log).to eq(network_log)
+    expect(run.summary).to eq('pages' => 2)
+  end
+
   it 'transitions to failed' do
     result = described_class.call(run: run, status: 'failed', audit_log_entries: [])
 

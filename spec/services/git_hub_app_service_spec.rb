@@ -7,13 +7,14 @@ RSpec.describe GitHubAppService do
   let(:service) { described_class.for_installation(42) }
 
   before do
+    described_class.reset_token_cache!
     allow(ENV).to receive(:fetch).and_call_original
     allow(ENV).to receive(:fetch).with('GITHUB_APP_ID', nil).and_return('123')
     allow(ENV).to receive(:fetch).with('GITHUB_APP_PRIVATE_KEY', nil).and_return(rsa_key.to_pem)
 
     allow(Octokit::Client).to receive(:new).and_return(app_client, installation_client)
     allow(app_client).to receive(:create_app_installation_access_token)
-      .with(42).and_return(token: 'installation-token')
+      .with(42).and_return(token: 'installation-token', expires_at: 1.hour.from_now)
   end
 
   describe '#file_content' do
@@ -45,6 +46,55 @@ RSpec.describe GitHubAppService do
         .and_return(repositories: [{ full_name: 'acme/web' }, { full_name: 'acme/api' }])
 
       expect(service.repository_names).to eq(%w[acme/api acme/web])
+    end
+
+    it 'serves the list from cache for a minute, until the installation changes' do
+      allow(installation_client).to receive(:list_app_installation_repositories)
+        .and_return(repositories: [{ full_name: 'acme/web' }])
+
+      2.times { service.repository_names }
+      expect(installation_client).to have_received(:list_app_installation_repositories).once
+
+      described_class.forget_repositories(42)
+      service.repository_names
+      expect(installation_client).to have_received(:list_app_installation_repositories).twice
+    end
+  end
+
+  describe 'installation token caching' do
+    let(:second_client) { instance_double(Octokit::Client) }
+
+    before do
+      allow(installation_client).to receive(:contents).and_return([])
+      allow(second_client).to receive(:contents).and_return([])
+    end
+
+    it 'reuses a token that is still valid instead of minting a new one' do
+      allow(Octokit::Client).to receive(:new).and_return(app_client, installation_client, second_client)
+
+      described_class.for_installation(42).directory_entries('acme/app')
+      described_class.for_installation(42).directory_entries('acme/app')
+
+      expect(app_client).to have_received(:create_app_installation_access_token).once
+    end
+
+    it 'mints a new token when the cached one is about to expire' do
+      allow(app_client).to receive(:create_app_installation_access_token)
+        .with(42).and_return({ token: 'old', expires_at: 2.minutes.from_now }, { token: 'new', expires_at: 1.hour.from_now })
+      allow(Octokit::Client).to receive(:new).and_return(app_client, installation_client, app_client, second_client)
+
+      described_class.for_installation(42).directory_entries('acme/app')
+      described_class.for_installation(42).directory_entries('acme/app')
+
+      expect(app_client).to have_received(:create_app_installation_access_token).twice
+    end
+
+    it 'drops a rejected token and retries once with a fresh one' do
+      allow(installation_client).to receive(:contents).and_raise(Octokit::Unauthorized)
+      allow(Octokit::Client).to receive(:new).and_return(app_client, installation_client, app_client, second_client)
+
+      expect(described_class.for_installation(42).directory_entries('acme/app')).to eq([])
+      expect(app_client).to have_received(:create_app_installation_access_token).twice
     end
   end
 

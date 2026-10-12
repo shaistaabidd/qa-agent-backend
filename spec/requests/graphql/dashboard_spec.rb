@@ -16,6 +16,24 @@ RSpec.describe 'GraphQL: dashboard aggregation queries', type: :request do
   before { create(:membership, user: admin, project: project, role: :admin) }
 
   describe 'findingsSummary' do
+    it 'counts each open issue once, not every finding from every run' do
+      first = create(:run, project: project, status: :completed)
+      latest = create(:run, project: project, status: :completed)
+      create(:finding, run: first, title: 'Crash', fingerprint: 'crash', severity: :critical)
+      create(:finding, run: latest, title: 'Crash', fingerprint: 'crash', severity: :critical)
+      create(:finding, run: first, title: 'Fixed', fingerprint: 'fixed', severity: :high)
+
+      result = graphql(
+        "query { findingsSummary(projectId: \"#{project.id}\") { total resolved totalFindings bySeverity { severity count } } }",
+        token: admin_token
+      )
+
+      summary = result.dig('data', 'findingsSummary')
+      expect(summary).to include('total' => 1, 'resolved' => 1, 'totalFindings' => 3)
+      counts = summary['bySeverity'].to_h { |row| [row['severity'], row['count']] }
+      expect(counts).to include('CRITICAL' => 1, 'HIGH' => 0)
+    end
+
     it 'breaks findings down by severity and ClickUp posting status' do
       run = create(:run, project: project)
       create(:finding, run: run, title: 'A', severity: :high, clickup_task_id: 'task-1')

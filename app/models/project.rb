@@ -22,6 +22,9 @@ class Project < ApplicationRecord
     integration = integrations.find_or_initialize_by(integration_type: :github)
     installation_changed = integration.external_account_id != installation_id.to_s
 
+    # The user just changed what the installation can see on GitHub.
+    GitHubAppService.forget_repositories(installation_id)
+
     transaction do
       update!(repo_connection: nil) if installation_changed && repo_connection
       integration.update!(

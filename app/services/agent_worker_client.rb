@@ -1,5 +1,5 @@
-# Dispatches a queued Run to the external Playwright/LLM worker (Feature D —
-# not built in this repo). The raw role credential is never included in this
+# Dispatches a queued Run to the external Playwright worker (the separate
+# qa-agent-worker project). The raw role credential is never included in this
 # payload; instead we hand over a short-lived, single-use fetch token the
 # worker exchanges for the actual value via resolveRoleCredential, at the
 # moment it's needed.

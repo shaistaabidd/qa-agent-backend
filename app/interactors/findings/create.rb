@@ -17,7 +17,10 @@ module Findings
       context.finding = context.run.findings.create!(
         title: context.title,
         repro_steps: context.repro_steps,
-        severity: context.severity
+        severity: context.severity,
+        category: context.category,
+        details: context.details.to_h,
+        fingerprint: context.fingerprint.presence || context.title
       )
     end
 

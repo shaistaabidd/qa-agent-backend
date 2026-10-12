@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2026_09_10_063001) do
+ActiveRecord::Schema[7.0].define(version: 2026_10_09_110000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -59,6 +59,10 @@ ActiveRecord::Schema[7.0].define(version: 2026_09_10_063001) do
     t.string "clickup_task_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "category"
+    t.jsonb "details", default: {}, null: false
+    t.string "fingerprint"
+    t.index ["fingerprint"], name: "index_findings_on_fingerprint"
     t.index ["run_id", "title"], name: "index_findings_on_run_id_and_title", unique: true
     t.index ["run_id"], name: "index_findings_on_run_id"
   end
@@ -115,6 +119,8 @@ ActiveRecord::Schema[7.0].define(version: 2026_09_10_063001) do
     t.datetime "finished_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "network_log", default: [], null: false
+    t.jsonb "summary", default: {}, null: false
     t.index ["project_id"], name: "index_runs_on_project_id"
     t.index ["scope_feature_id"], name: "index_runs_on_scope_feature_id"
   end

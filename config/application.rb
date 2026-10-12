@@ -49,6 +49,9 @@ module QaAgentBackend
 
     config.active_job.queue_adapter = :sidekiq
     config.eager_load_paths << Rails.root.join('lib')
+    # QaProbe is required explicitly by its initializer (it installs middleware,
+    # which must not be reloadable), so keep Zeitwerk away from it.
+    Rails.autoloaders.main.ignore(Rails.root.join('lib/qa_probe.rb'), Rails.root.join('lib/qa_probe'))
 
     # Must be set here (not in config/initializers) — ActiveRecord::Railtie
     # reads config.active_record.encryption during its own initializer, which

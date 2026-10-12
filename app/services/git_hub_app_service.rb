@@ -7,6 +7,27 @@ require 'base64'
 class GitHubAppService
   class ConfigurationError < StandardError; end
 
+  # Installation tokens are valid for an hour; minting one costs a GitHub
+  # round trip (~1s). They're cached per process and replaced shortly before
+  # they expire, so callers never use an expired one.
+  TOKEN_CACHE = Concurrent::Map.new
+  TOKEN_REFRESH_MARGIN = 5.minutes
+
+  # The repo list feeds the project page's picker on every load; it only
+  # changes when someone edits the installation on GitHub, and linking an
+  # installation clears it, so a short cache is safe.
+  REPOSITORIES_CACHE = Concurrent::Map.new
+  REPOSITORIES_TTL = 60.seconds
+
+  def self.reset_token_cache!
+    TOKEN_CACHE.clear
+    REPOSITORIES_CACHE.clear
+  end
+
+  def self.forget_repositories(installation_id)
+    REPOSITORIES_CACHE.delete(installation_id.to_s)
+  end
+
   def self.for_installation(installation_id)
     new(installation_id)
   end
@@ -24,7 +45,7 @@ class GitHubAppService
   end
 
   def file_content(repo_full_name, path)
-    entry = client.contents(repo_full_name, path: path)
+    entry = with_token_retry { client.contents(repo_full_name, path: path) }
     return nil unless entry.respond_to?(:content)
 
     Base64.decode64(entry.content)
@@ -33,7 +54,7 @@ class GitHubAppService
   end
 
   def directory_entries(repo_full_name, path: '')
-    entries = client.contents(repo_full_name, path: path)
+    entries = with_token_retry { client.contents(repo_full_name, path: path) }
     Array(entries)
   rescue Octokit::NotFound
     []
@@ -41,7 +62,13 @@ class GitHubAppService
 
   # Full names ("owner/name") of every repo the installation was granted.
   def repository_names
-    client.list_app_installation_repositories(per_page: 100)[:repositories].map { |repo| repo[:full_name] }.sort
+    cached = REPOSITORIES_CACHE[cache_key]
+    return cached[:names] if cached && cached[:at] > REPOSITORIES_TTL.ago
+
+    names = with_token_retry { client.list_app_installation_repositories(per_page: 100) }[:repositories]
+            .map { |repo| repo[:full_name] }.sort
+    REPOSITORIES_CACHE[cache_key] = { names: names, at: Time.current }
+    names
   end
 
   private
@@ -53,7 +80,31 @@ class GitHubAppService
   end
 
   def installation_access_token
-    app_client.create_app_installation_access_token(installation_id)[:token]
+    cached = TOKEN_CACHE[cache_key]
+    return cached[:token] if cached && cached[:expires_at] > TOKEN_REFRESH_MARGIN.from_now
+
+    response = app_client.create_app_installation_access_token(installation_id)
+    expires_at = response[:expires_at]
+    expires_at = Time.zone.parse(expires_at) if expires_at.is_a?(String)
+    TOKEN_CACHE[cache_key] = { token: response[:token], expires_at: expires_at || 50.minutes.from_now }
+    response[:token]
+  end
+
+  # A cached token can still be rejected early (permissions changed, app
+  # reinstalled). Drop it, mint a fresh one and retry once.
+  def with_token_retry
+    yield
+  rescue Octokit::Unauthorized
+    raise if @retried
+
+    @retried = true
+    TOKEN_CACHE.delete(cache_key)
+    @client = nil
+    retry
+  end
+
+  def cache_key
+    installation_id.to_s
   end
 
   def app_client

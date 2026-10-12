@@ -16,6 +16,18 @@ RSpec.describe Findings::Create do
     end.to have_enqueued_job(ClickUpPostJob)
   end
 
+  it 'stores the category and evidence details' do
+    details = { 'type' => 'uncaught_exception', 'stack' => "TypeError: x\n  at src/App.jsx:3:7", 'occurrences' => 2 }
+
+    result = described_class.call(
+      run: run, title: 'TypeError: x', repro_steps: [], severity: 'high', screenshot: nil,
+      category: 'error', details: details
+    )
+
+    expect(result.finding.reload.category).to eq('error')
+    expect(result.finding.details).to eq(details)
+  end
+
   it 'attaches the screenshot when one is provided' do
     file = fixture_file_upload('screenshot.png', 'image/png')
 

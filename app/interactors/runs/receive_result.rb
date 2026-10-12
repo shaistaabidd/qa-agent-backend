@@ -7,8 +7,11 @@ module Runs
 
     STATUS_EVENTS = { 'completed' => :complete!, 'failed' => :fail!, 'blocked' => :block! }.freeze
 
+    MAX_NETWORK_LOG = 2_000
+
     def call
       persist_audit_log_entries
+      persist_logs
       apply_transition
       context.run = context.run.reload
     rescue AASM::InvalidTransition => e
@@ -22,6 +25,13 @@ module Runs
         context.run.audit_log_entries.create!(action_taken: entry[:action_taken],
                                               target_element: entry[:target_element])
       end
+    end
+
+    def persist_logs
+      attributes = {}
+      attributes[:network_log] = Array(context.network_log).first(MAX_NETWORK_LOG) if context.network_log
+      attributes[:summary] = context.summary.to_h if context.summary
+      context.run.update!(attributes) if attributes.any?
     end
 
     def apply_transition

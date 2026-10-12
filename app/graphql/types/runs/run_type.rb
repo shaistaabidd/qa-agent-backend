@@ -9,6 +9,8 @@ module Types
       field :created_at, GraphQL::Types::ISO8601DateTime, null: false
       field :scope_feature, Types::ScopeFeatures::ScopeFeatureType, null: false
       field :audit_log_entries, [Types::Runs::AuditLogEntryType], null: false
+      field :network_log, GraphQL::Types::JSON, null: false
+      field :summary, GraphQL::Types::JSON, null: false
     end
   end
 end
