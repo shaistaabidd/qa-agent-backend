@@ -13,10 +13,6 @@ module Queries
         project = Project.find(params[:project_id])
         authenticate_project_access!(project)
 
-        # TEMPORARY: deliberate memory bloat to test QA Agent detection — revert after testing.
-        # Builds 1M throwaway strings (plus their sort/join copies) on every request.
-        Array.new(1_000_000) { |i| "finding-row-#{i}-#{project.id}" }.sort.join(',').length
-
         summary_for(project)
       rescue GraphQL::ExecutionError
         raise
