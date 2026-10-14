@@ -33,7 +33,7 @@ module QaProbe
     end
 
     def redis
-      @redis ||= Redis.new(url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/0'))
+      @redis ||= Redis.new(url: ENV['REDISCLOUD_URL'].presence || ENV.fetch('REDIS_URL', 'redis://localhost:6379/0'))
     end
   end
 end
