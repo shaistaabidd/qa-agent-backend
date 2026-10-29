@@ -17,7 +17,9 @@ Headers: `Authorization: Bearer {AGENT_WORKER_API_TOKEN}`, `Content-Type: applic
 }
 ```
 
-The raw credential never travels in this payload. The worker exchanges `credential_fetch_token` for it with `resolveRoleCredential`.
+The raw credential never travels in this payload. The worker exchanges `credential_fetch_token` for it with `resolveRoleCredential`, once.
+
+Calls carrying a valid `X-Agent-Token` skip the per-IP edge rate limit on `/graphql` (300 a minute), since the worker reports back many times per run. A wrong token gets no such exemption.
 
 ## Worker to backend: `POST {callback_url}` (GraphQL)
 
@@ -34,7 +36,7 @@ Keep these input type names (`CreateFindingInput`, `ReceiveResultInput`): they c
 ## Behaviour the specs pin down
 
 - `resolveRoleCredential` and both mutations reject a missing or wrong agent token (`UNAUTHENTICATED`), including a valid user session.
-- `resolveRoleCredential` refuses a run that is not `running`.
+- `resolveRoleCredential` refuses a run that is not `running` (`RUN_NOT_ACTIVE`), and a fetch token works once: a second exchange is `INVALID_TOKEN`.
 - `createFinding` rejects a duplicate title within the same run.
 - `createFinding` with a screenshot attaches it and enqueues the ClickUp post job.
 - `receiveRunResult` records the audit log entries and moves the run to the reported status.

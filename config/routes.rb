@@ -10,5 +10,8 @@ Rails.application.routes.draw do
   # Feature-flag dashboard, Basic Auth-protected when credentials are set - see config/initializers/flipper_ui.rb.
   mount FlipperUi.app, at: "/flipper"
 
+  # Background-job dashboard, Basic Auth-protected - see config/initializers/sidekiq_web.rb.
+  mount SidekiqUi.app, at: "/sidekiq"
+
   mount LetterOpenerWeb::Engine, at: "/letter_opener" if Rails.env.development?
 end

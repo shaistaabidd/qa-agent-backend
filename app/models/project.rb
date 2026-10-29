@@ -13,7 +13,7 @@ class Project < ApplicationRecord
 
   validates :name, presence: true, length: { maximum: NAME_MAX_LENGTH }
   validates :target_url, presence: true, length: { maximum: TARGET_URL_MAX_LENGTH }
-  validate :target_url_is_http
+  validates :target_url, public_http_url: true
 
   def repo_connected? = repo_connection_id.present?
   def github_installed? = integrations.any?(&:github?)
@@ -36,17 +36,5 @@ class Project < ApplicationRecord
       )
     end
     self
-  end
-
-  private
-
-  # The worker browses this URL, so it has to be a web address.
-  def target_url_is_http
-    return if target_url.blank?
-
-    uri = URI.parse(target_url)
-    errors.add(:target_url, :invalid) unless uri.is_a?(URI::HTTP) && uri.host.present?
-  rescue URI::InvalidURIError
-    errors.add(:target_url, :invalid)
   end
 end

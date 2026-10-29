@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_29_100008) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_29_110001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -153,6 +153,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_29_100008) do
     t.jsonb "summary", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.datetime "credential_fetched_at"
     t.index ["project_id", "created_at", "id"], name: "index_runs_on_project_id_and_created_at_and_id"
     t.index ["project_id", "status"], name: "index_runs_on_project_id_and_status"
     t.index ["scope_feature_id"], name: "index_runs_on_scope_feature_id"

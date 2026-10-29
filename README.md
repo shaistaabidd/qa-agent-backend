@@ -66,8 +66,11 @@ Environment (add these to `.env`; production fails to boot without the encryptio
 | `CLICKUP_API_TOKEN` | Posting findings to ClickUp |
 | `QA_PROBE_TOKEN`, `QA_PROBE_ENABLED`, `QA_PROBE_SLOW_SQL_MS`, `QA_PROBE_N_PLUS_ONE_THRESHOLD`, `QA_PROBE_IGNORED_EXCEPTIONS` | The probe |
 | `REDISCLOUD_URL` | Heroku Redis Cloud; takes precedence over `REDIS_URL` |
+| `ALLOW_PRIVATE_TARGETS` | Whether a project's target URL may be a local or private address. On outside production; production refuses them unless this is `true` (for example a staging app on a VPN). Public names that resolve to private addresses are not caught: keep the worker off networks that reach internal services. |
 
 The evidence bucket is the boilerplate's `S3_BUCKET`, and the worker's callback URL is built from `APP_HOST`.
+
+The Sidekiq dashboard is at `/sidekiq`, behind the same HTTP Basic Auth as `/flipper` (`FLIPPER_UI_USERNAME`, `FLIPPER_UI_PASSWORD`; required in production). Heroku Scheduler: also run `bin/rails runs:fail_stale` every few minutes, so a run the worker lost doesn't stay "running".
 
 ## Roles
 

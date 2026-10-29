@@ -35,6 +35,10 @@ module QaAgentBackend
     config.active_record.encryption.deterministic_key = encryption_key.call("AR_ENCRYPTION_DETERMINISTIC_KEY")
     config.active_record.encryption.key_derivation_salt = encryption_key.call("AR_ENCRYPTION_KEY_DERIVATION_SALT")
 
+    # Whether a project's target URL may be a local or private address. The worker browses these URLs,
+    # so production refuses them unless ALLOW_PRIVATE_TARGETS=true (for example a staging app on a VPN).
+    config.x.allow_private_targets = ENV.fetch("ALLOW_PRIVATE_TARGETS", (!Rails.env.production?).to_s) == "true"
+
     config.x.app_name = ENV.fetch("APP_NAME", "QA Agent")
     # The agent worker: where runs are dispatched, and the shared secrets for both directions.
     config.x.agent = {

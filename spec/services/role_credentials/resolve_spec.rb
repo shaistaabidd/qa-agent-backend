@@ -10,6 +10,20 @@ RSpec.describe RoleCredentials::Resolve do
     expect(described_class.call(token:).value).to eq("s3cr3t")
   end
 
+  it "works once: a second exchange of the same token is refused" do
+    expect(described_class.call(token:).value).to eq("s3cr3t")
+
+    expect(described_class.call(token:).error.code).to eq(:invalid_token)
+  end
+
+  it "doesn't use up the token on a failed attempt against an inactive run" do
+    run.update!(status: :queued)
+    expect(described_class.call(token:).error.code).to eq(:run_not_active)
+
+    run.update!(status: :running)
+    expect(described_class.call(token:).value).to eq("s3cr3t")
+  end
+
   it "refuses a run that is no longer running" do
     run.update!(status: :completed)
 

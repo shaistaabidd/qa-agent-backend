@@ -137,6 +137,7 @@ RSpec/DescribeClass:
     - "spec/graphql/mutations/**/*"
     - "spec/graphql/queries/**/*"
     - "spec/graphql/agent_contract_spec.rb"
+    - "spec/graphql/schema_limits_spec.rb"
     - "spec/requests/**/*"
 
 Metrics/ClassLength:

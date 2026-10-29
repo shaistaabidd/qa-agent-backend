@@ -37,11 +37,7 @@ class GraphqlController < ApplicationController
   end
 
   # Machine-to-machine auth for the agent worker calling back: a shared secret, never a user.
-  def agent_authenticated?
-    token = request.headers["X-Agent-Token"]
-    expected = Rails.configuration.x.agent[:api_token]
-    token.present? && expected.present? && ActiveSupport::SecurityUtils.secure_compare(token, expected)
-  end
+  def agent_authenticated? = AgentToken.valid?(request.headers[AgentToken::HEADER])
 
   def render_malformed_variables
     render json: { errors: [{ message: I18n.t("errors.malformed_request"), extensions: { code: "BAD_REQUEST" } }] },

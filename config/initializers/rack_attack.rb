@@ -6,6 +6,13 @@ module Rack
     GRAPHQL_PATH = "/graphql".freeze
     GOOGLE_SIGN_IN_PATH = "/auth/google".freeze
 
+    # The agent worker reports back through /graphql many times per run, always from the same
+    # address. It is trusted (shared secret), so it skips the per-IP limits; everyone else, including
+    # anyone guessing the secret, is still throttled.
+    safelist("agent worker") do |request|
+      request.path == GRAPHQL_PATH && AgentToken.valid?(request.get_header("HTTP_X_AGENT_TOKEN"))
+    end
+
     throttle("graphql/ip", limit: 300, period: 1.minute) do |request|
       request.ip if request.path == GRAPHQL_PATH
     end

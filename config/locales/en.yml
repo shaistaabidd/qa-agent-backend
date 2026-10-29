@@ -64,6 +64,10 @@ en:
           attributes:
             phone:
               invalid: "must be a valid phone number with its country code, like +1 201 555 0123"
+        project:
+          attributes:
+            target_url:
+              private_address: "must be a public web address, not a local or private one"
       messages:
         password_missing_uppercase: "must include an uppercase letter"
         password_missing_lowercase: "must include a lowercase letter"

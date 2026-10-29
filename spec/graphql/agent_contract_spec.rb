@@ -46,6 +46,14 @@ RSpec.describe "Agent contract", type: :graphql do
         .to eq(["UNAUTHENTICATED"])
     end
 
+    it "hands it over only once per token" do
+      expect(execute_graphql(resolve_credential, variables: { token: }, agent: true)["errors"]).to be_nil
+
+      result = execute_graphql(resolve_credential, variables: { token: }, agent: true)
+
+      expect(error_codes(result)).to eq(["INVALID_TOKEN"])
+    end
+
     it "refuses a run that is no longer active" do
       token
       run.update!(status: :completed)
