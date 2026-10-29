@@ -1,4 +1,4 @@
-require 'base64'
+require "base64"
 
 # Wraps GitHub App authentication (JWT -> installation access token) and the
 # handful of Contents API calls the codebase scan needs. Works identically
@@ -36,7 +36,7 @@ class GitHubAppService
   # repos to grant, then GitHub redirects back to the app's callback URL with
   # installation_id (+ an OAuth code, see GitHubUserAuthorization) and state.
   def self.install_url(state)
-    slug = ENV.fetch('GITHUB_APP_SLUG', nil).presence || raise(ConfigurationError, 'GITHUB_APP_SLUG is not configured')
+    slug = ENV.fetch("GITHUB_APP_SLUG", nil).presence || raise(ConfigurationError, "GITHUB_APP_SLUG is not configured")
     "https://github.com/apps/#{slug}/installations/new?state=#{CGI.escape(state)}"
   end
 
@@ -53,7 +53,7 @@ class GitHubAppService
     nil
   end
 
-  def directory_entries(repo_full_name, path: '')
+  def directory_entries(repo_full_name, path: "")
     entries = with_token_retry { client.contents(repo_full_name, path: path) }
     Array(entries)
   rescue Octokit::NotFound
@@ -66,7 +66,7 @@ class GitHubAppService
     return cached[:names] if cached && cached[:at] > REPOSITORIES_TTL.ago
 
     names = with_token_retry { client.list_app_installation_repositories(per_page: 100) }[:repositories]
-            .map { |repo| repo[:full_name] }.sort
+            .pluck(:full_name).sort
     REPOSITORIES_CACHE[cache_key] = { names: names, at: Time.current }
     names
   end
@@ -113,16 +113,16 @@ class GitHubAppService
 
   def app_jwt
     payload = { iat: Time.now.to_i - 60, exp: Time.now.to_i + 540, iss: app_id }
-    JWT.encode(payload, private_key, 'RS256')
+    JWT.encode(payload, private_key, "RS256")
   end
 
   def app_id
-    ENV.fetch('GITHUB_APP_ID', nil).presence || raise(ConfigurationError, 'GITHUB_APP_ID is not configured')
+    ENV.fetch("GITHUB_APP_ID", nil).presence || raise(ConfigurationError, "GITHUB_APP_ID is not configured")
   end
 
   def private_key
-    raw = ENV.fetch('GITHUB_APP_PRIVATE_KEY',
-                    nil).presence || raise(ConfigurationError, 'GITHUB_APP_PRIVATE_KEY is not configured')
+    raw = ENV.fetch("GITHUB_APP_PRIVATE_KEY",
+                    nil).presence || raise(ConfigurationError, "GITHUB_APP_PRIVATE_KEY is not configured")
     OpenSSL::PKey::RSA.new(raw.gsub('\n', "\n"))
   end
 end

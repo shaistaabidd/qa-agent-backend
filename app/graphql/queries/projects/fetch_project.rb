@@ -1,25 +1,15 @@
 module Queries
   module Projects
-    class FetchProject < Queries::BaseQuery
-      include AuthenticableApiUser
-      include PermissionHandler
+    class FetchProject < BaseQuery
+      include ProjectAccess
 
-      argument :id, ID, required: true
+      description "One project the signed-in user can see"
 
-      type Types::Projects::ProjectType, null: false
+      type Types::ProjectType, null: false
 
-      def resolve(**params)
-        authenticate_user!
-        project = Project.find(params[:id])
-        authenticate_project_access!(project)
-        project
-      rescue GraphQL::ExecutionError
-        raise
-      rescue ActiveRecord::RecordNotFound
-        execution_error(message: 'Project not found', code: 404)
-      rescue StandardError => e
-        execution_error(message: e.message)
-      end
+      argument :id, ID, description: "Project to fetch"
+
+      def resolve(id:) = find_project(id)
     end
   end
 end

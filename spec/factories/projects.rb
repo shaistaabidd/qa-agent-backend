@@ -1,6 +1,6 @@
 FactoryBot.define do
   factory :project do
-    name { 'MyString' }
-    target_url { 'MyString' }
+    sequence(:name) { "Project #{it}" }
+    target_url { "https://app.example.com" }
   end
 end

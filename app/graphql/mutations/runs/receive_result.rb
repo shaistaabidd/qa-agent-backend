@@ -1,35 +1,24 @@
 module Mutations
   module Runs
     class ReceiveResult < BaseMutation
-      include AuthenticableAgent
+      agent_only!
 
-      argument :run_id, ID, required: true
-      argument :status, Types::Enums::RunResultStatusEnum, required: true
-      argument :audit_log_entries, [Types::Runs::AuditLogEntryAttributes], required: false, default_value: []
-      argument :network_log, GraphQL::Types::JSON, required: false
-      argument :summary, GraphQL::Types::JSON, required: false
+      description "Agent worker only: reports a run's audit trail, logs and final status"
 
-      type Types::Runs::RunPayload
+      argument :run_id, ID, description: "The run being reported"
+      argument :status, Types::RunResultStatusEnum, description: "The run's final (or blocking) status"
+      argument :audit_log_entries, [Types::AuditLogEntryAttributes], required: false, default_value: [],
+                                                                     description: "What the worker did"
+      argument :network_log, GraphQL::Types::JSON, required: false, description: "Requests the worker observed"
+      argument :summary, GraphQL::Types::JSON, required: false, description: "The worker's summary of the run"
 
-      def resolve(**params)
-        authenticate_agent!
-        run = Run.find(params[:run_id])
+      field :run, Types::RunType, null: false, description: "The run with its recorded result"
 
-        result = ::Runs::ReceiveResult.call(
-          run: run,
-          status: params[:status],
-          audit_log_entries: params[:audit_log_entries],
-          network_log: params[:network_log],
-          summary: params[:summary]
-        )
+      def resolve(run_id:, status:, audit_log_entries:, network_log: nil, summary: nil)
+        result = ::Runs::ReceiveResult.call(run: Run.find(run_id), status:, network_log:, summary:,
+                                            audit_log_entries: audit_log_entries.map(&:to_h))
 
-        result.success? ? result : execution_error(message: result.error)
-      rescue GraphQL::ExecutionError
-        raise
-      rescue ActiveRecord::RecordNotFound
-        execution_error(message: 'Run not found', code: 404)
-      rescue StandardError => e
-        execution_error(message: e.message)
+        { run: value_or_raise!(result) }
       end
     end
   end

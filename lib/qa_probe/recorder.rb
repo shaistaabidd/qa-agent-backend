@@ -12,7 +12,8 @@ module QaProbe
     MAX_EXCEPTIONS = 20
     MAX_BACKTRACE = 15
 
-    attr_reader :id, :kind, :name
+    attr_accessor :name
+    attr_reader :id, :kind
 
     def self.current
       Thread.current[:qa_probe_recorder]
@@ -35,7 +36,7 @@ module QaProbe
       return if @sql_subscribed
 
       @sql_subscribed = true
-      ActiveSupport::Notifications.subscribe('sql.active_record') do |event|
+      ActiveSupport::Notifications.subscribe("sql.active_record") do |event|
         current&.record_sql(event)
       end
     end
@@ -55,7 +56,7 @@ module QaProbe
       @status = nil
     end
 
-    attr_writer :status, :name
+    attr_writer :status
 
     def start
       @active_at_start = ACTIVE.increment - 1
@@ -97,7 +98,8 @@ module QaProbe
 
     def record_sql(event)
       payload = event.payload
-      return if SKIPPED_SQL_NAMES.include?(payload[:name]) || payload[:sql].to_s.match?(/\A\s*(BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE)/i)
+      return if SKIPPED_SQL_NAMES.include?(payload[:name])
+      return if payload[:sql].to_s.match?(/\A\s*(BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE)/i)
 
       if payload[:cached]
         @cached_count += 1
@@ -110,8 +112,9 @@ module QaProbe
       @query_count += 1
       @sql_ms += duration
 
-      entry = (@queries[[shape, caller_line]] ||= { sql: shape, caller: caller_line, count: 0, total_ms: 0.0, max_ms: 0.0,
-                                                     sample: payload[:sql].to_s.gsub(%r{/\*.*?\*/}m, '').strip[0, 500] })
+      entry = (@queries[[shape,
+                         caller_line]] ||= { sql: shape, caller: caller_line, count: 0, total_ms: 0.0, max_ms: 0.0,
+                                             sample: payload[:sql].to_s.gsub(%r{/\*.*?\*/}m, "").strip[0, 500] })
       entry[:count] += 1
       entry[:total_ms] += duration
       entry[:max_ms] = [entry[:max_ms], duration].max
@@ -175,7 +178,7 @@ module QaProbe
     end
 
     def self.rss_kb
-      File.foreach('/proc/self/status') { |line| return line.split[1].to_i if line.start_with?('VmRSS:') }
+      File.foreach("/proc/self/status") { |line| return line.split[1].to_i if line.start_with?("VmRSS:") }
       nil
     rescue SystemCallError
       nil
@@ -193,7 +196,7 @@ module QaProbe
                rounded(q).merge(
                  table: table,
                  suggestion: "Preload the records instead of loading them one at a time" \
-                             "#{table ? " (e.g. `includes`/`preload` the association that loads `#{table}`)" : ''}."
+                             "#{" (e.g. `includes`/`preload` the association that loads `#{table}`)" if table}."
                )
              end
     end
@@ -207,7 +210,7 @@ module QaProbe
       return if QaProbe.ignored_exceptions.include?(exception.class.name)
 
       locations = exception.backtrace_locations || caller_locations
-      raise_point = locations.find { |loc| !loc.path.to_s.start_with?('<internal:') }
+      raise_point = locations.find { |loc| !loc.path.to_s.start_with?("<internal:") }
       return unless force || (raise_point && self.class.app_path?(raise_point))
 
       location = self.class.app_frame(locations)
@@ -228,7 +231,10 @@ module QaProbe
       root = "#{Rails.root}/"
       locations.reject { |loc| loc.path.to_s.start_with?("#{root}lib/qa_probe") }
                .first(MAX_BACKTRACE * 2)
-               .map { |loc| "#{loc.path.to_s.delete_prefix(root).sub(%r{.*/gems/}, 'gems/')}:#{loc.lineno} in `#{loc.label}`" }
+               .map do |loc|
+        "#{loc.path.to_s.delete_prefix(root).sub(%r{.*/gems/},
+                                                 "gems/")}:#{loc.lineno} in `#{loc.label}`"
+      end
                .first(MAX_BACKTRACE)
     end
 

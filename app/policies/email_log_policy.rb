@@ -1,0 +1,2 @@
+class EmailLogPolicy < SuperAdminOnlyPolicy
+end

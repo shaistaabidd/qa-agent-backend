@@ -1,27 +1,19 @@
 module Mutations
   module Projects
     class CreateProject < BaseMutation
-      include AuthenticableApiUser
+      description "Creates a project; the creator becomes its admin"
 
-      argument :name, String, required: true
-      argument :target_url, String, required: true
+      rate_limit to: 30, within: 1.hour, by: ->(_) { current_user.id }
 
-      type Types::Projects::ProjectPayload
+      argument :name, String, description: "Display name"
+      argument :target_url, String, description: "The deployed app the worker will explore"
 
-      def resolve(**params)
-        authenticate_user!
+      field :project, Types::ProjectType, null: false, description: "The new project"
 
-        result = ::Projects::Create.call(
-          current_user: current_user,
-          name: params[:name],
-          target_url: params[:target_url]
-        )
+      def resolve(name:, target_url:)
+        authorize! Project, to: :create?
 
-        result.success? ? result : execution_error(message: result.error)
-      rescue GraphQL::ExecutionError
-        raise
-      rescue StandardError => e
-        execution_error(message: e.message)
+        { project: value_or_raise!(::Projects::Create.call(user: current_user, name:, target_url:)) }
       end
     end
   end

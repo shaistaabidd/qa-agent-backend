@@ -1,24 +1,18 @@
 module Queries
   module Runs
-    class FetchRun < Queries::BaseQuery
-      include AuthenticableApiUser
-      include PermissionHandler
+    class FetchRun < BaseQuery
+      include ProjectAccess
 
-      argument :id, ID, required: true
+      description "One run, with what the worker did"
 
-      type Types::Runs::RunType, null: false
+      type Types::RunType, null: false
 
-      def resolve(**params)
-        authenticate_user!
-        run = Run.find(params[:id])
-        authenticate_project_access!(run.project)
+      argument :id, ID, description: "Run to fetch"
+
+      def resolve(id:)
+        run = find_in_projects(Run, id)
+        authorize! run.project, to: :show?
         run
-      rescue GraphQL::ExecutionError
-        raise
-      rescue ActiveRecord::RecordNotFound
-        execution_error(message: 'Run not found', code: 404)
-      rescue StandardError => e
-        execution_error(message: e.message)
       end
     end
   end

@@ -1,44 +1,25 @@
 module Mutations
   module Findings
-    # Called by the external agent worker as it discovers issues during a
-    # run — potentially several times per run, before the final
-    # receiveRunResult call closes the run out.
+    # Called by the worker as it finds issues during a run: possibly several times per run, before the
+    # final receiveRunResult closes the run.
     class CreateFinding < BaseMutation
-      include AuthenticableAgent
+      agent_only!
 
-      argument :run_id, ID, required: true
-      argument :title, String, required: true
-      argument :repro_steps, [String], required: true
-      argument :severity, Types::Enums::FindingSeverityEnum, required: true
-      argument :screenshot, ApolloUploadServer::Upload, required: false
-      argument :category, String, required: false
-      argument :details, GraphQL::Types::JSON, required: false
-      argument :fingerprint, String, required: false
+      description "Agent worker only: records an issue found during a run"
 
-      type Types::Findings::FindingPayload
+      argument :run_id, ID, description: "The run that found it"
+      argument :title, String, description: "Short summary; unique within the run"
+      argument :repro_steps, [String], description: "How to reproduce it"
+      argument :severity, Types::FindingSeverityEnum, description: "How serious it is"
+      argument :screenshot, Types::UploadType, required: false, description: "A screenshot, as a multipart upload"
+      argument :category, String, required: false, description: "The worker's category for it"
+      argument :details, GraphQL::Types::JSON, required: false, description: "Evidence the worker recorded"
+      argument :fingerprint, String, required: false, description: "Findings sharing one are the same issue"
 
-      def resolve(**params)
-        authenticate_agent!
-        run = Run.find(params[:run_id])
+      field :finding, Types::FindingType, null: false, description: "The recorded finding"
 
-        result = ::Findings::Create.call(
-          run: run,
-          title: params[:title],
-          repro_steps: params[:repro_steps],
-          severity: params[:severity],
-          screenshot: params[:screenshot],
-          category: params[:category],
-          details: params[:details],
-          fingerprint: params[:fingerprint]
-        )
-
-        result.success? ? result : execution_error(message: result.error)
-      rescue GraphQL::ExecutionError
-        raise
-      rescue ActiveRecord::RecordNotFound
-        execution_error(message: 'Run not found', code: 404)
-      rescue StandardError => e
-        execution_error(message: e.message)
+      def resolve(run_id:, **attributes)
+        { finding: value_or_raise!(::Findings::Create.call(run: Run.find(run_id), **attributes)) }
       end
     end
   end

@@ -1,10 +1,19 @@
 FactoryBot.define do
   factory :run do
     project
-    scope_feature
-    role_name { 'admin' }
+    scope_feature { association :scope_feature, project: }
+    role_name { "admin" }
     status { :queued }
-    started_at { nil }
-    finished_at { nil }
+
+    trait :running do
+      status { :running }
+      started_at { Time.current }
+    end
+
+    trait :completed do
+      status { :completed }
+      started_at { 5.minutes.ago }
+      finished_at { Time.current }
+    end
   end
 end

@@ -1,48 +1,70 @@
-require 'rails_helper'
+require "rails_helper"
 
 RSpec.describe AgentWorkerClient do
-  let(:project) { create(:project, target_url: 'https://staging.example.com') }
-  let(:scope_feature) { create(:scope_feature, project: project, name: 'Checkout', route: '/checkout') }
-  let(:run) { create(:run, project: project, scope_feature: scope_feature, role_name: 'admin') }
+  let(:project) { create(:project, target_url: "https://staging.example.com") }
+  let(:scope_feature) { create(:scope_feature, project:, name: "Checkout", route: "/checkout") }
+  let(:run) { create(:run, project:, scope_feature:, role_name: "admin") }
 
-  before do
-    create(:role_credential, project: project, role_name: 'admin')
+  before { create(:role_credential, project:, role_name: "admin") }
 
-    allow(ENV).to receive(:fetch).and_call_original
-    allow(ENV).to receive(:fetch).with('AGENT_WORKER_BASE_URL', nil).and_return('https://worker.internal')
-    allow(ENV).to receive(:fetch).with('AGENT_WORKER_API_TOKEN', nil).and_return('worker-token')
-    allow(ENV).to receive(:fetch).with('APP_BASE_URL', nil).and_return('https://api.example.com')
-  end
-
-  it 'posts the run context, without the raw credential, to the worker' do
-    sent_request = nil
-    stub_request(:post, 'https://worker.internal/runs').to_return do |request|
-      sent_request = request
-      { status: 200, body: '{}' }
+  it "posts the run context, without the raw credential, to the worker" do
+    sent = nil
+    stub_request(:post, "http://worker.test/runs").to_return do |request|
+      sent = request
+      { status: 200, body: "{}" }
     end
 
     described_class.new.dispatch(run)
 
-    expect(sent_request.headers['Authorization']).to eq('Bearer worker-token')
-    body = JSON.parse(sent_request.body)
+    expect(sent.headers["Authorization"]).to eq("Bearer worker-api-token")
+    body = JSON.parse(sent.body)
     expect(body).to include(
-      'run_id' => run.id,
-      'target_url' => 'https://staging.example.com',
-      'callback_url' => 'https://api.example.com/graphql'
+      "run_id" => run.id,
+      "target_url" => "https://staging.example.com",
+      "role_name" => "admin",
+      "scope_feature" => { "name" => "Checkout", "route" => "/checkout" },
+      "callback_url" => "http://www.example.com/graphql"
     )
-    expect(body).not_to have_key('encrypted_credential_ref')
-    expect(body['credential_fetch_token']).to be_present
+    expect(body.keys).to match_array(%w[run_id target_url role_name scope_feature callback_url
+                                        credential_fetch_token])
+    expect(body.to_json).not_to include(project.role_credentials.first.encrypted_credential_ref)
   end
 
-  it 'raises DispatchError when the worker responds with an error status' do
-    stub_request(:post, 'https://worker.internal/runs').to_return(status: 500)
+  it "sends a token the worker can exchange for the credential" do
+    sent = nil
+    stub_request(:post, "http://worker.test/runs").to_return do |request|
+      sent = request
+      { status: 200, body: "{}" }
+    end
+    run.update!(status: :running)
 
-    expect { described_class.new.dispatch(run) }.to raise_error(AgentWorkerClient::DispatchError)
+    described_class.new.dispatch(run)
+
+    token = JSON.parse(sent.body).fetch("credential_fetch_token")
+    expect(RoleCredentials::Resolve.call(token:).value).to eq("s3cr3t-password")
   end
 
-  it 'raises ConfigurationError when AGENT_WORKER_BASE_URL is missing' do
-    allow(ENV).to receive(:fetch).with('AGENT_WORKER_BASE_URL', nil).and_return(nil)
+  it "raises DispatchError when the worker answers with an error status" do
+    stub_request(:post, "http://worker.test/runs").to_return(status: 500)
+
+    expect { described_class.new.dispatch(run) }.to raise_error(AgentWorkerClient::DispatchError, /500/)
+  end
+
+  it "raises DispatchError, not a network error, when the worker is unreachable" do
+    stub_request(:post, "http://worker.test/runs").to_timeout
+
+    expect { described_class.new.dispatch(run) }.to raise_error(AgentWorkerClient::DispatchError, /unreachable/)
+  end
+
+  it "raises ConfigurationError when the worker URL is missing" do
+    allow(Rails.configuration.x).to receive(:agent).and_return(worker_api_token: "token")
 
     expect { described_class.new.dispatch(run) }.to raise_error(AgentWorkerClient::ConfigurationError)
+  end
+
+  it "raises DispatchError when the run has no credential to hand over" do
+    project.role_credentials.destroy_all
+
+    expect { described_class.new.dispatch(run) }.to raise_error(AgentWorkerClient::DispatchError, /credential/i)
   end
 end

@@ -4,7 +4,7 @@ module QaProbe
   module Store
     REQUEST_TTL = 15 * 60
     MAX_JOBS = 500
-    PREFIX = 'qa_probe'.freeze
+    PREFIX = "qa_probe".freeze
 
     module_function
 
@@ -28,12 +28,12 @@ module QaProbe
     def jobs_since(since)
       redis.lrange("#{PREFIX}:jobs", 0, MAX_JOBS - 1)
            .map { |json| JSON.parse(json) }
-           .select { |report| report['started_at'] && Time.iso8601(report['started_at']) >= since }
+           .select { |report| report["started_at"] && Time.iso8601(report["started_at"]) >= since }
            .reverse
     end
 
     def redis
-      @redis ||= Redis.new(url: ENV['REDISCLOUD_URL'].presence || ENV.fetch('REDIS_URL', 'redis://localhost:6379/0'))
+      @redis ||= Redis.new(url: ENV["REDISCLOUD_URL"].presence || ENV.fetch("REDIS_URL", "redis://localhost:6379/0"))
     end
   end
 end

@@ -1,27 +1,19 @@
 module Mutations
   module Integrations
     class ConnectClickUp < BaseMutation
-      include AuthenticableApiUser
-      include PermissionHandler
+      include ProjectAccess
 
-      argument :project_id, ID, required: true
-      argument :list_id, String, required: true
+      description "Project admins: sets the ClickUp list findings are posted into"
 
-      type Types::Projects::ProjectPayload
+      argument :project_id, ID, description: "Project to connect"
+      argument :list_id, String, description: "ClickUp list id"
 
-      def resolve(**params)
-        authenticate_user!
-        project = Project.find(params[:project_id])
-        authenticate_project_admin!(project)
+      field :project, Types::ProjectType, null: false, description: "The project"
 
-        result = ::Integrations::ConnectClickUp.call(project: project, list_id: params[:list_id])
-        result.success? ? result : execution_error(message: result.error)
-      rescue GraphQL::ExecutionError
-        raise
-      rescue ActiveRecord::RecordNotFound
-        execution_error(message: 'Project not found', code: 404)
-      rescue StandardError => e
-        execution_error(message: e.message)
+      def resolve(project_id:, list_id:)
+        project = find_project(project_id, to: :manage?)
+
+        { project: value_or_raise!(::Integrations::ConnectClickUp.call(project:, list_id:)) }
       end
     end
   end

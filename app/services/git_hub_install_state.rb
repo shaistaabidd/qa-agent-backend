@@ -10,7 +10,7 @@ class GitHubInstallState
   CHOICE_TTL = 10.minutes
 
   def self.generate(project:, user:)
-    verifier.generate({ 'project_id' => project.id, 'user_id' => user.id }, purpose: PURPOSE, expires_in: TTL)
+    verifier.generate({ "project_id" => project.id, "user_id" => user.id }, purpose: PURPOSE, expires_in: TTL)
   end
 
   # => { 'project_id' => .., 'user_id' => .. } or nil if tampered/expired.
@@ -19,7 +19,7 @@ class GitHubInstallState
   end
 
   def self.generate_choice(project_id:, user_id:, installation_ids:)
-    payload = { 'project_id' => project_id, 'user_id' => user_id, 'installation_ids' => installation_ids }
+    payload = { "project_id" => project_id, "user_id" => user_id, "installation_ids" => installation_ids }
     verifier.generate(payload, purpose: CHOICE_PURPOSE, expires_in: CHOICE_TTL)
   end
 

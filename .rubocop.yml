@@ -1,0 +1,160 @@
+plugins:
+  - rubocop-rails
+  - rubocop-rspec
+  - rubocop-rspec_rails
+  - rubocop-factory_bot
+  - rubocop-graphql
+
+AllCops:
+  TargetRubyVersion: 4.0
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - "bin/**/*"
+    - "db/schema.rb"
+    - "vendor/**/*"
+    - "tmp/**/*"
+
+Style/Documentation:
+  Enabled: false
+
+Style/FrozenStringLiteralComment:
+  Enabled: false
+
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes
+
+# Subclassing Data.define keeps constants and validation inside the value class.
+Style/DataInheritance:
+  Enabled: false
+
+Layout/LineLength:
+  Max: 120
+
+Metrics/BlockLength:
+  Exclude:
+    - "spec/**/*"
+    - "config/**/*"
+
+Metrics/MethodLength:
+  Max: 15
+  Exclude:
+    - "db/migrate/**/*"
+    - "lib/qa_probe/**/*"
+
+Rails/I18nLocaleTexts:
+  Enabled: true
+
+GraphQL/ExtractInputType:
+  Enabled: false
+
+GraphQL/ExtractType:
+  Enabled: false
+
+GraphQL/ObjectDescription:
+  Exclude:
+    - "app/graphql/types/base_*.rb"
+
+RSpec/ExampleLength:
+  Max: 20
+
+RSpec/MultipleExpectations:
+  Max: 5
+
+RSpec/NestedGroups:
+  Max: 4
+
+RSpec/MultipleMemoizedHelpers:
+  Max: 8
+
+# Services take their inputs in initialize; ApplicationService has no state to initialize.
+Lint/MissingSuper:
+  AllowedParentClasses:
+    - ApplicationService
+
+# Rails' own has_secure_password API and our token lookups follow the find_by_*_token naming.
+Rails/DynamicFindBy:
+  AllowedMethods:
+    - find_by_token
+    - find_by_password_reset_token
+    - find_by_invitation_token
+
+# Timestamps, counters and the atomic one-time-password upsert skip validations on purpose.
+Rails/SkipsModelValidations:
+  Exclude:
+    - "spec/**/*"
+    # A raw copy of the old app's rows: no validation or callback must run (see lib/legacy/import.rb).
+    - "lib/legacy/import.rb"
+  AllowedMethods:
+    - touch
+    - increment!
+    - upsert
+
+Rails/Output:
+  Exclude:
+    - "db/seeds.rb"
+
+Metrics/AbcSize:
+  Exclude:
+    - "db/migrate/**/*"
+    # Ported as-is: GitHub App token handling and the QA probe's instrumentation.
+    - "app/services/git_hub_app_service.rb"
+    - "lib/qa_probe/**/*"
+
+# The QA probe is self-contained instrumentation (see lib/qa_probe.rb), kept whole rather than split to fit a count.
+Metrics/CyclomaticComplexity:
+  Exclude:
+    - "lib/qa_probe/**/*"
+
+# The probe strips "#{Rails.root}/" from paths; the cop's suggestion drops the trailing slash.
+Rails/RootPathnameMethods:
+  Exclude:
+    - "lib/qa_probe/**/*"
+
+Rails/FilePath:
+  Exclude:
+    - "lib/qa_probe/**/*"
+
+Metrics/PerceivedComplexity:
+  Exclude:
+    - "lib/qa_probe/**/*"
+
+Rails/CreateTableWithTimestamps:
+  Exclude:
+    - "db/migrate/*_create_active_storage_tables.rb"
+
+# Fields and arguments are ordered by meaning (identity first), not alphabetically.
+GraphQL/OrderedFields:
+  Enabled: false
+
+GraphQL/OrderedArguments:
+  Enabled: false
+
+# GraphQL and request specs describe an API flow, not a Ruby class.
+RSpec/DescribeClass:
+  Exclude:
+    - "spec/graphql/mutations/**/*"
+    - "spec/graphql/queries/**/*"
+    - "spec/graphql/agent_contract_spec.rb"
+    - "spec/graphql/schema_limits_spec.rb"
+    - "spec/requests/**/*"
+
+Metrics/ClassLength:
+  Exclude:
+    - "db/migrate/**/*"
+    # The account model every auth flow touches (sessions, codes, invitations,
+    # access, email changes); it reads better whole than split to fit a count.
+    - "app/models/user.rb"
+    - "lib/qa_probe/**/*"
+    # One-off importer: each table is a short step, kept together so the order reads top to bottom.
+    - "lib/legacy/import.rb"
+
+# The legacy importer reads and writes plain table models on purpose, so none of the app's behaviour
+# (callbacks, encryption, versions) runs while rows are copied.
+Rails/ApplicationRecord:
+  Exclude:
+    - "lib/legacy/*.rb"
+

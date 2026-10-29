@@ -32,8 +32,19 @@ class GitHubUserAuthorization
   # Memoized because the code behind the token is single-use.
   def installations
     @installations ||= user_client.list_user_installations(per_page: 100)[:installations].map do |installation|
-      { id: installation[:id], account_login: installation[:account][:login], account_type: installation[:account][:type] }
+      { id: installation[:id], account_login: installation[:account][:login],
+        account_type: installation[:account][:type] }
     end
+  end
+
+  def self.client_id
+    ENV.fetch("GITHUB_APP_CLIENT_ID", nil).presence ||
+      raise(GitHubAppService::ConfigurationError, "GITHUB_APP_CLIENT_ID is not configured")
+  end
+
+  def self.client_secret
+    ENV.fetch("GITHUB_APP_CLIENT_SECRET", nil).presence ||
+      raise(GitHubAppService::ConfigurationError, "GITHUB_APP_CLIENT_SECRET is not configured")
   end
 
   private
@@ -47,25 +58,15 @@ class GitHubUserAuthorization
   # GitHub answers a bad/expired/reused code with 200 + { error: ... }, not
   # an HTTP error, so the missing token is the failure signal.
   def user_access_token
-    raise AuthorizationError, 'GitHub authorization code is missing' if code.blank?
+    raise AuthorizationError, "GitHub authorization code is missing" if code.blank?
 
     response = Octokit::Client.new.exchange_code_for_token(code, client_id, client_secret)
     return response[:access_token] if response[:access_token].present?
 
     Rails.logger.warn("[GitHub] code exchange failed: #{response[:error]} — #{response[:error_description]}")
-    raise AuthorizationError, 'GitHub authorization expired or was already used — please connect again'
+    raise AuthorizationError, "GitHub authorization expired or was already used — please connect again"
   end
 
   def client_id = self.class.client_id
   def client_secret = self.class.client_secret
-
-  def self.client_id
-    ENV.fetch('GITHUB_APP_CLIENT_ID', nil).presence ||
-      raise(GitHubAppService::ConfigurationError, 'GITHUB_APP_CLIENT_ID is not configured')
-  end
-
-  def self.client_secret
-    ENV.fetch('GITHUB_APP_CLIENT_SECRET', nil).presence ||
-      raise(GitHubAppService::ConfigurationError, 'GITHUB_APP_CLIENT_SECRET is not configured')
-  end
 end

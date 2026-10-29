@@ -1,28 +1,19 @@
 module Mutations
   module Integrations
     class ConnectGithub < BaseMutation
-      include AuthenticableApiUser
-      include PermissionHandler
+      include ProjectAccess
 
-      argument :project_id, ID, required: true
-      argument :repo_full_name, String, required: true
+      description "Project admins: links one of the installation's repositories to the project"
 
-      type Types::Projects::ProjectPayload
+      argument :project_id, ID, description: "Project to connect"
+      argument :repo_full_name, String, description: "Repository as owner/name"
 
-      def resolve(**params)
-        authenticate_user!
-        project = Project.find(params[:project_id])
-        authenticate_project_admin!(project)
+      field :project, Types::ProjectType, null: false, description: "The project"
 
-        result = ::Integrations::ConnectGithub.call(project: project, repo_full_name: params[:repo_full_name])
+      def resolve(project_id:, repo_full_name:)
+        project = find_project(project_id, to: :manage?)
 
-        result.success? ? result : execution_error(message: result.error)
-      rescue GraphQL::ExecutionError
-        raise
-      rescue ActiveRecord::RecordNotFound
-        execution_error(message: 'Project not found', code: 404)
-      rescue StandardError => e
-        execution_error(message: e.message)
+        { project: value_or_raise!(::Integrations::ConnectGithub.call(project:, repo_full_name:)) }
       end
     end
   end

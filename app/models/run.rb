@@ -1,6 +1,9 @@
 class Run < ApplicationRecord
   include AASM
 
+  # A run still "running" after this long is presumed lost (the worker crashed or never called back).
+  STALE_AFTER = 2.hours
+
   belongs_to :project
   belongs_to :scope_feature
 
@@ -10,6 +13,8 @@ class Run < ApplicationRecord
   enum :status, { queued: 0, running: 1, blocked: 2, completed: 3, failed: 4 }
 
   validates :role_name, presence: true
+
+  scope :stale, -> { running.where(started_at: ...STALE_AFTER.ago) }
 
   aasm column: :status, enum: true do
     state :queued, initial: true
@@ -31,7 +36,7 @@ class Run < ApplicationRecord
     end
 
     event :complete do
-      transitions from: :running, to: :completed, after: proc { update!(finished_at: Time.current) }
+      transitions from: %i[running blocked], to: :completed, after: proc { update!(finished_at: Time.current) }
     end
 
     event :fail do

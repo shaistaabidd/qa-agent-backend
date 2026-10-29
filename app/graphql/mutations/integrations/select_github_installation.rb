@@ -1,26 +1,23 @@
 module Mutations
   module Integrations
     class SelectGithubInstallation < BaseMutation
-      include AuthenticableApiUser
-      include PermissionHandler
+      include ProjectAccess
 
-      argument :choice_token, String, required: true
-      argument :installation_id, String, required: true
+      description "Links the installation the user picked after \"sign in with GitHub\""
 
-      type Types::Projects::ProjectPayload
+      rate_limit to: 20, within: 10.minutes, by: ->(_) { current_user.id }
 
-      def resolve(**params)
-        authenticate_user!
-        payload = GitHubInstallState.verify_choice(params[:choice_token])
-        authenticate_project_admin!(Project.find_by(id: payload&.dig('project_id'))) if payload
+      argument :choice_token, String, description: "From authorizeGithubUser"
+      argument :installation_id, String, description: "The chosen installation"
 
-        result = ::Integrations::SelectGithubInstallation.call(user: current_user, **params)
+      field :project, Types::ProjectType, null: false, description: "The project"
 
-        result.success? ? result : execution_error(message: result.error)
-      rescue GraphQL::ExecutionError
-        raise
-      rescue StandardError => e
-        execution_error(message: e.message)
+      def resolve(choice_token:, installation_id:)
+        payload = GitHubInstallState.verify_choice(choice_token)
+        find_project(payload["project_id"], to: :manage?) if payload
+
+        result = ::Integrations::SelectGithubInstallation.call(user: current_user, choice_token:, installation_id:)
+        { project: value_or_raise!(result) }
       end
     end
   end

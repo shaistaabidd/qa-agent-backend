@@ -1,9 +1,6 @@
----
-development:
-  :concurrency: 5
-production:
-  :concurrency: 10
+:concurrency: <%= ENV.fetch("SIDEKIQ_CONCURRENCY", 5) %>
 :queues:
   - critical
   - default
   - mailers
+  - maintenance

@@ -1,0 +1,8 @@
+#!/usr/bin/env ruby
+require "rubygems"
+require "bundler/setup"
+
+# Fail on every warning, including weak-confidence ones, and keep output CI-friendly.
+ARGV.unshift("--ensure-latest", "--no-pager", "--confidence-level", "1") unless ARGV.include?("--no-ensure-latest")
+
+load Gem.bin_path("brakeman", "brakeman")

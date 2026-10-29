@@ -1,27 +1,22 @@
 module Mutations
   module Runs
     class DispatchRun < BaseMutation
-      include AuthenticableApiUser
-      include PermissionHandler
+      include ProjectAccess
 
-      argument :scope_feature_id, ID, required: true
-      argument :role_name, String, required: true
+      description "Project admins: queues a run of an approved scope feature as one of the project's roles"
 
-      type Types::Runs::RunPayload
+      rate_limit to: 30, within: 10.minutes, by: ->(_) { current_user.id }
 
-      def resolve(**params)
-        authenticate_user!
-        scope_feature = ScopeFeature.find(params[:scope_feature_id])
-        authenticate_project_admin!(scope_feature.project)
+      argument :scope_feature_id, ID, description: "Approved scope feature to run"
+      argument :role_name, String, description: "Role to sign in as; it needs a stored credential"
 
-        result = ::Runs::Dispatch.call(scope_feature: scope_feature, role_name: params[:role_name])
-        result.success? ? result : execution_error(message: result.error)
-      rescue GraphQL::ExecutionError
-        raise
-      rescue ActiveRecord::RecordNotFound
-        execution_error(message: 'Scope feature not found', code: 404)
-      rescue StandardError => e
-        execution_error(message: e.message)
+      field :run, Types::RunType, null: false, description: "The queued run"
+
+      def resolve(scope_feature_id:, role_name:)
+        scope_feature = find_in_projects(ScopeFeature, scope_feature_id)
+        authorize! scope_feature.project, to: :manage?
+
+        { run: value_or_raise!(::Runs::Dispatch.call(scope_feature:, role_name:)) }
       end
     end
   end

@@ -1,5 +1,9 @@
+# Hands a queued run to the worker. When the worker can't be reached the run is failed here,
+# rather than left "running" with nobody working on it.
 class RunDispatchJob < ApplicationJob
-  queue_as :default
+  queue_as :critical
+
+  discard_on ActiveRecord::RecordNotFound
 
   def perform(run_id)
     run = Run.find(run_id)

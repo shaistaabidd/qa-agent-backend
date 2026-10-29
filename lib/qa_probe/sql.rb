@@ -6,12 +6,12 @@ module QaProbe
 
     def normalize(sql)
       sql.to_s
-         .gsub(%r{/\*.*?\*/}m, '') # query log tags / comments
-         .gsub(/'(?:[^']|'')*'/, '?')
-         .gsub(/\$\d+/, '?')
-         .gsub(/\b\d+(\.\d+)?\b/, '?')
-         .gsub(/\bIN\s*\((?:\s*\?\s*,?)+\)/i, 'IN (?)')
-         .gsub(/\s+/, ' ')
+         .gsub(%r{/\*.*?\*/}m, "") # query log tags / comments
+         .gsub(/'(?:[^']|'')*'/, "?")
+         .gsub(/\$\d+/, "?")
+         .gsub(/\b\d+(\.\d+)?\b/, "?")
+         .gsub(/\bIN\s*\((?:\s*\?\s*,?)+\)/i, "IN (?)")
+         .gsub(/\s+/, " ")
          .strip
     end
 

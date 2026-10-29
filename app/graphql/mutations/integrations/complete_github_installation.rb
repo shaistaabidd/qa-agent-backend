@@ -1,27 +1,24 @@
 module Mutations
   module Integrations
     class CompleteGithubInstallation < BaseMutation
-      include AuthenticableApiUser
-      include PermissionHandler
+      include ProjectAccess
 
-      argument :state, String, required: true
-      argument :installation_id, String, required: true
-      argument :code, String, required: true
+      description "Finishes the GitHub App install redirect and stores the installation on the project"
 
-      type Types::Projects::ProjectPayload
+      rate_limit to: 20, within: 10.minutes, by: ->(_) { current_user.id }
 
-      def resolve(**params)
-        authenticate_user!
-        payload = GitHubInstallState.verify(params[:state])
-        authenticate_project_admin!(Project.find_by(id: payload&.dig('project_id'))) if payload
+      argument :state, String, description: "The signed state GitHub echoed back"
+      argument :installation_id, String, description: "GitHub's installation id"
+      argument :code, String, description: "The OAuth code GitHub sent with the redirect"
 
-        result = ::Integrations::LinkGithubInstallation.call(user: current_user, **params)
+      field :project, Types::ProjectType, null: false, description: "The project"
 
-        result.success? ? result : execution_error(message: result.error)
-      rescue GraphQL::ExecutionError
-        raise
-      rescue StandardError => e
-        execution_error(message: e.message)
+      def resolve(state:, installation_id:, code:)
+        payload = GitHubInstallState.verify(state)
+        find_project(payload["project_id"], to: :manage?) if payload
+
+        result = ::Integrations::LinkGithubInstallation.call(user: current_user, state:, installation_id:, code:)
+        { project: value_or_raise!(result) }
       end
     end
   end

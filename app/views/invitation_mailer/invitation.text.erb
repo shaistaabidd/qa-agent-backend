@@ -1,0 +1,5 @@
+<%= @inviter_name ? t(".intro_with_inviter", inviter: @inviter_name, app_name: Rails.configuration.x.app_name) : t(".intro", app_name: Rails.configuration.x.app_name) %>
+
+<%= t(".accept") %>: <%= @accept_url %>
+
+<%= t(".expiry", days: @valid_for_days) %>

@@ -1,48 +1,50 @@
-require 'rails_helper'
+require "rails_helper"
 
 RSpec.describe ClickUpPostJob do
   let(:project) { create(:project) }
-  let(:run) { create(:run, project: project) }
-  let(:finding) { create(:finding, run: run) }
-  let(:clickup_client) { instance_double(ClickUpService) }
+  let(:finding) { create(:finding, run: create(:run, project:)) }
+  let(:clickup) { instance_double(ClickUpService, create_task: "abc123") }
 
-  before do
-    allow(ClickUpService).to receive(:new).and_return(clickup_client)
-    allow(clickup_client).to receive(:create_task)
-  end
+  before { allow(ClickUpService).to receive(:new).and_return(clickup) }
 
-  context 'when the project has a connected ClickUp list' do
-    before { create(:integration, project: project, integration_type: :click_up, external_account_id: '900') }
+  context "when the project has a ClickUp list" do
+    before { create(:integration, :click_up, project:, external_account_id: "900") }
 
-    it 'posts the task and stores the returned clickup_task_id' do
-      allow(clickup_client).to receive(:create_task).with('900', finding).and_return('abc123')
+    it "posts the task and stores its id" do
+      described_class.perform_now(finding.id)
+
+      expect(clickup).to have_received(:create_task).with("900", finding)
+      expect(finding.reload.clickup_task_id).to eq("abc123")
+    end
+
+    it "does not post a finding twice" do
+      finding.update!(clickup_task_id: "already-posted")
 
       described_class.perform_now(finding.id)
 
-      expect(finding.reload.clickup_task_id).to eq('abc123')
+      expect(clickup).not_to have_received(:create_task)
     end
 
-    it 'is idempotent — does not re-post a finding that already has a task id' do
-      finding.update!(clickup_task_id: 'already-posted')
-
-      described_class.perform_now(finding.id)
-
-      expect(clickup_client).not_to have_received(:create_task)
-    end
-
-    it 'logs and does not raise if ClickUp is unreachable' do
-      allow(clickup_client).to receive(:create_task).and_raise(ClickUpService::PostError, 'boom')
+    it "logs and drops a request ClickUp refused" do
+      allow(clickup).to receive(:create_task).and_raise(ClickUpService::PostError, "boom")
 
       expect { described_class.perform_now(finding.id) }.not_to raise_error
       expect(finding.reload.clickup_task_id).to be_nil
     end
+
+    it "retries when ClickUp is rate limited or down" do
+      allow(clickup).to receive(:create_task).and_raise(ClickUpService::TransientError, "429")
+
+      described_class.perform_later(finding.id)
+
+      expect { perform_enqueued_jobs }.not_to raise_error
+      expect(enqueued_jobs.size).to eq(1)
+    end
   end
 
-  context 'when the project has no ClickUp integration configured' do
-    it 'does nothing' do
-      described_class.perform_now(finding.id)
+  it "does nothing without a ClickUp list" do
+    described_class.perform_now(finding.id)
 
-      expect(clickup_client).not_to have_received(:create_task)
-    end
+    expect(clickup).not_to have_received(:create_task)
   end
 end

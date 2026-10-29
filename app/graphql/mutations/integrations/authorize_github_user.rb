@@ -1,26 +1,24 @@
 module Mutations
   module Integrations
     class AuthorizeGithubUser < BaseMutation
-      include AuthenticableApiUser
-      include PermissionHandler
+      include ProjectAccess
 
-      argument :state, String, required: true
-      argument :code, String, required: true
+      description "Finishes \"sign in with GitHub\": lists the existing installations the user can access"
 
-      type Types::Integrations::GithubAuthorizationPayload
+      rate_limit to: 20, within: 10.minutes, by: ->(_) { current_user.id }
 
-      def resolve(**params)
-        authenticate_user!
-        payload = GitHubInstallState.verify(params[:state])
-        authenticate_project_admin!(Project.find_by(id: payload&.dig('project_id'))) if payload
+      argument :state, String, description: "The signed state GitHub echoed back"
+      argument :code, String, description: "The OAuth code GitHub sent with the redirect"
 
-        result = ::Integrations::AuthorizeGithubUser.call(user: current_user, **params)
+      field :choice_token, String, null: false, description: "Pass back to selectGithubInstallation"
+      field :installations, [Types::GithubInstallationType], null: false, description: "Installations to choose from"
 
-        result.success? ? result : execution_error(message: result.error)
-      rescue GraphQL::ExecutionError
-        raise
-      rescue StandardError => e
-        execution_error(message: e.message)
+      def resolve(state:, code:)
+        payload = GitHubInstallState.verify(state)
+        find_project(payload["project_id"], to: :manage?) if payload
+
+        authorization = value_or_raise!(::Integrations::AuthorizeGithubUser.call(user: current_user, state:, code:))
+        { choice_token: authorization.choice_token, installations: authorization.installations }
       end
     end
   end

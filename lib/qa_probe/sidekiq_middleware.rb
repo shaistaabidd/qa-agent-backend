@@ -4,13 +4,13 @@ module QaProbe
   class SidekiqMiddleware
     def call(_worker, job, _queue)
       recorder = nil
-      Recorder.record(kind: 'job', name: job['wrapped'] || job['class']) do |current|
+      Recorder.record(kind: "job", name: job["wrapped"] || job["class"]) do |current|
         recorder = current
         yield
-        current.status = 'succeeded'
+        current.status = "succeeded"
       end
     rescue StandardError
-      recorder&.status = 'failed'
+      recorder&.status = "failed"
       raise
     ensure
       save(recorder) if recorder

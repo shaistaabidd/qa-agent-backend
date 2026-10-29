@@ -1,5 +1,7 @@
 module Queries
   class BaseQuery < GraphQL::Schema::Resolver
-    include ExecutionErrorResponder
+    include GraphqlOperation
+
+    argument_class Types::BaseArgument
   end
 end
