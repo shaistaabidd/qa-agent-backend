@@ -106,6 +106,21 @@ RSpec.describe "Finding queries", type: :graphql do
       expect(rows(source: "FRONTEND").pluck("source")).to eq(["FRONTEND"])
     end
 
+    it "lists findings without their screenshots when the query doesn't ask for them" do
+      run = finished_run
+      2.times do |index|
+        create(:finding, run:, title: "F#{index}").screenshot.attach(
+          io: file_fixture("screenshot.png").open, filename: "s.png", content_type: "image/png"
+        )
+      end
+
+      result = execute_graphql("query($id: ID!) { allFindings(projectId: $id) { allData { id title severity } } }",
+                               variables: { id: project.id.to_s }, as: user)
+
+      expect(result["errors"]).to be_nil
+      expect(result.dig("data", "allFindings", "allData").size).to eq(2)
+    end
+
     it "includes a screenshot URL without a query per finding" do
       run = finished_run
       2.times do |index|

@@ -13,7 +13,7 @@ module Findings
       findings = findings.where(severity:) if severity
       findings = findings.where(category:) if category.present?
       findings = findings.from_source(source) if source
-      findings.with_attached_screenshot.order(created_at: :desc, id: :desc)
+      findings.order(created_at: :desc, id: :desc)
     end
 
     # The latest finding of every issue (DISTINCT ON the same key IssueStats groups by).

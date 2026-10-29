@@ -9,7 +9,11 @@ RSpec.describe "GraphQL edge rate limit" do
 
   def code = response.parsed_body.dig("errors", 0, "extensions", "code")
 
-  before { Rack::Attack.cache.store.clear }
+  before do
+    Rack::Attack.cache.store.clear
+    # Rack::Attack counts in fixed one-minute windows; start well inside one so a slow run can't straddle two.
+    travel_to(Time.current.beginning_of_minute + 5.seconds)
+  end
 
   it "throttles an address after 300 requests in a minute" do
     300.times { post_graphql }

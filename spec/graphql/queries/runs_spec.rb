@@ -34,6 +34,18 @@ RSpec.describe "Run queries", type: :graphql do
       expect(statuses(status: "RUNNING")).to eq(["RUNNING"])
     end
 
+    it "loads only what the list asks for: the queue's own fields, as the web app selects them" do
+      create(:audit_log_entry, run: Run.running.first)
+
+      result = execute_graphql(
+        "query($id: ID!) { allRuns(projectId: $id) { allData { id status roleName scopeFeature { id name } } } }",
+        variables: { id: project.id.to_s }, as: user
+      )
+
+      expect(result["errors"]).to be_nil
+      expect(result.dig("data", "allRuns", "allData").size).to eq(3)
+    end
+
     it "includes what the worker did without a query per run" do
       create(:audit_log_entry, run: Run.running.first)
 

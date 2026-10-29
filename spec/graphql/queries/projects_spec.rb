@@ -53,6 +53,16 @@ RSpec.describe "Project queries", type: :graphql do
       expect(execute_graphql(query, variables: { filter: { perPage: 100_000 } }, as: user)["errors"]).to be_nil
     end
 
+    it "loads nothing it wasn't asked for, so a minimal query doesn't trip the eager-loading checks" do
+      create(:membership, user:)
+      project.update!(repo_connection: create(:integration, project:))
+
+      result = execute_graphql("{ allProjects { allData { id name repoConnected } } }", as: user)
+
+      expect(result["errors"]).to be_nil
+      expect(result.dig("data", "allProjects", "allData").size).to eq(2)
+    end
+
     it "requires sign-in" do
       expect(error_codes(execute_graphql(query))).to eq(["UNAUTHENTICATED"])
     end

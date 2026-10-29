@@ -10,8 +10,7 @@ module Queries
       argument :id, ID, description: "Finding to fetch"
 
       def resolve(id:)
-        finding = Finding.joins(:run).where(runs: { project_id: authorized_scope(Project.all).select(:id) })
-                         .with_attached_screenshot.find(id)
+        finding = Finding.joins(:run).where(runs: { project_id: authorized_scope(Project.all).select(:id) }).find(id)
         project = finding.run.project
         authorize!(project, to: :show?)
 

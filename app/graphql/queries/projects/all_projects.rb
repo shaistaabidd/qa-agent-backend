@@ -9,10 +9,16 @@ module Queries
 
       argument :filter, Types::PaginatedFilterInput, required: false, description: "Paging"
 
-      def resolve(filter: nil)
+      extras [:lookahead]
+
+      # Associations are only loaded when the query asks for what needs them.
+      def resolve(lookahead:, filter: nil)
         authorize! Project, to: :index?
 
-        projects = authorized_scope(Project.all).includes(:integrations, :repo_connection)
+        fields = lookahead.selection(:all_data)
+        projects = authorized_scope(Project.all)
+        projects = projects.includes(:integrations) if fields.selects?(:github_installed)
+        projects = projects.includes(:repo_connection) if fields.selects?(:repo_full_name)
         paginate_with_filter(projects.order(created_at: :desc, id: :desc), filter.to_h)
       end
     end
