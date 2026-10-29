@@ -86,6 +86,8 @@ Rails/DynamicFindBy:
 Rails/SkipsModelValidations:
   Exclude:
     - "spec/**/*"
+    # A raw copy of the old app's rows: no validation or callback must run (see lib/legacy/import.rb).
+    - "lib/legacy/import.rb"
   AllowedMethods:
     - touch
     - increment!
@@ -147,3 +149,12 @@ Metrics/ClassLength:
     # access, email changes); it reads better whole than split to fit a count.
     - "app/models/user.rb"
     - "lib/qa_probe/**/*"
+    # One-off importer: each table is a short step, kept together so the order reads top to bottom.
+    - "lib/legacy/import.rb"
+
+# The legacy importer reads and writes plain table models on purpose, so none of the app's behaviour
+# (callbacks, encryption, versions) runs while rows are copied.
+Rails/ApplicationRecord:
+  Exclude:
+    - "lib/legacy/*.rb"
+
