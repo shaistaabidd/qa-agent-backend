@@ -17,7 +17,7 @@ Rails.application.configure do
   config.action_mailer.delivery_method = :letter_opener_web
   config.action_mailer.raise_delivery_errors = true
   config.action_mailer.perform_caching = false
-  config.action_mailer.default_url_options = { host: ENV.fetch("APP_HOST", "localhost:3000") }
+  config.action_mailer.default_url_options = { host: config.x.app_host || "localhost:3000" }
 
   config.active_job.verbose_enqueue_logs = true
   config.active_storage.service = :local

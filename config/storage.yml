@@ -14,7 +14,7 @@ local:
 amazon:
   service: S3
   region: <%= ENV.fetch("AWS_REGION", "us-east-1") %>
-  # EVIDENCE_S3_BUCKET is the name the app used before it moved onto the boilerplate.
+  # EVIDENCE_S3_BUCKET is the name the app used before it moved onto the boilerplate; both work.
   bucket: <%= ENV["S3_BUCKET"].presence || ENV.fetch("EVIDENCE_S3_BUCKET", "") %>
   access_key_id: <%= ENV.fetch("AWS_ACCESS_KEY_ID", "") %>
   secret_access_key: <%= ENV.fetch("AWS_SECRET_ACCESS_KEY", "") %>

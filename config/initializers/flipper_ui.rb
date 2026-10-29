@@ -1,7 +1,7 @@
 # Wraps Flipper::UI (mounted at /flipper in config/routes.rb) in HTTP Basic
-# Auth. Production refuses to boot without both credentials, since anyone who
-# reaches the dashboard can change every flag; elsewhere, leaving them unset
-# runs it without auth.
+# Auth. Anyone who reaches the dashboard can change every flag, so production
+# does not mount it (or the Sidekiq dashboard, which shares these credentials)
+# until both are set; elsewhere, leaving them unset runs it without auth.
 require "rack/session/cookie"
 require "flipper/ui/decorators/feature"
 
@@ -42,8 +42,14 @@ module FlipperUi
     end
   end
 
-  USERNAME = Rails.env.production? ? ENV.fetch("FLIPPER_UI_USERNAME") : ENV.fetch("FLIPPER_UI_USERNAME", nil)
-  PASSWORD = Rails.env.production? ? ENV.fetch("FLIPPER_UI_PASSWORD") : ENV.fetch("FLIPPER_UI_PASSWORD", nil)
+  USERNAME = ENV["FLIPPER_UI_USERNAME"].presence
+  PASSWORD = ENV["FLIPPER_UI_PASSWORD"].presence
+
+  # Whether the admin dashboards are routed at all: always outside production, and in production only once
+  # both credentials exist. An existing deploy without them boots with the dashboards switched off.
+  def self.exposed?
+    !Rails.env.production? || (USERNAME.present? && PASSWORD.present?)
+  end
 
   def self.app
     Flipper::UI.app do |builder|

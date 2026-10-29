@@ -3,8 +3,8 @@ require "rack/session/cookie"
 
 # The Sidekiq dashboard (mounted at /sidekiq in config/routes.rb) shows job arguments and can retry or
 # delete jobs, so it sits behind the same HTTP Basic Auth as /flipper (FLIPPER_UI_USERNAME and
-# FLIPPER_UI_PASSWORD). Production refuses to boot without them; elsewhere, leaving them unset runs it
-# without auth.
+# FLIPPER_UI_PASSWORD). Production does not mount it until they are set (FlipperUi.exposed?); elsewhere,
+# leaving them unset runs it without auth.
 module SidekiqUi
   # Basic Auth that reads the credentials per request and lets everyone in while none are configured.
   class OptionalBasicAuth

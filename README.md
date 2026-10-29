@@ -68,9 +68,15 @@ Environment (add these to `.env`; production fails to boot without the encryptio
 | `REDISCLOUD_URL` | Heroku Redis Cloud; takes precedence over `REDIS_URL` |
 | `ALLOW_PRIVATE_TARGETS` | Whether a project's target URL may be a local or private address. On outside production; production refuses them unless this is `true` (for example a staging app on a VPN). Public names that resolve to private addresses are not caught: keep the worker off networks that reach internal services. |
 
-The evidence bucket is the boilerplate's `S3_BUCKET`, and the worker's callback URL is built from `APP_HOST`.
+Existing Heroku config vars keep working, so nothing has to be renamed to deploy. The boilerplate's names are optional overrides and win when set:
 
-The Sidekiq dashboard is at `/sidekiq`, behind the same HTTP Basic Auth as `/flipper` (`FLIPPER_UI_USERNAME`, `FLIPPER_UI_PASSWORD`; required in production). Heroku Scheduler: also run `bin/rails runs:fail_stale` every few minutes, so a run the worker lost doesn't stay "running".
+| Existing (still read) | Boilerplate name (overrides) | Used for |
+| --- | --- | --- |
+| `APP_BASE_URL` (full URL) | `APP_HOST` (host only) | The worker's callback URL and mailer links; also `ALLOWED_HOSTS` when that is unset |
+| `FRONTEND_ORIGINS` | `CORS_ALLOWED_ORIGINS` | Browsers allowed to call the API; the first one is also `FRONTEND_URL` when that is unset |
+| `EVIDENCE_S3_BUCKET` | `S3_BUCKET` | The evidence bucket |
+
+The Sidekiq dashboard is at `/sidekiq`, behind the same HTTP Basic Auth as `/flipper` (`FLIPPER_UI_USERNAME`, `FLIPPER_UI_PASSWORD`). Production does not route either dashboard until both are set. Heroku Scheduler: also run `bin/rails runs:fail_stale` every few minutes, so a run the worker lost doesn't stay "running".
 
 ## Roles
 
@@ -171,7 +177,7 @@ heroku run 'SUPER_ADMIN_EMAIL=you@example.com SUPER_ADMIN_PASSWORD=... bin/rails
 ```
 
 - `Procfile`: `release` migrates and registers feature flags, `web` runs Puma, `worker` runs Sidekiq. Scale the worker to at least 1, or mail is never sent.
-- Heroku sets `DATABASE_URL`, `REDIS_URL` and `PORT`. Set `REDIS_SSL_VERIFY_NONE=true`, because Heroku Redis uses a self-signed TLS certificate. Production refuses to boot without `APP_HOST`, `FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `FLIPPER_UI_USERNAME` and `FLIPPER_UI_PASSWORD`. With `SMS_ENABLED=true` it also needs `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM_NUMBER` or `TWILIO_MESSAGING_SERVICE_SID`.
+- Heroku sets `DATABASE_URL`, `REDIS_URL` and `PORT`. Set `REDIS_SSL_VERIFY_NONE=true`, because Heroku Redis uses a self-signed TLS certificate. Production refuses to boot without an app address (`APP_HOST` or `APP_BASE_URL`), CORS origins (`CORS_ALLOWED_ORIGINS` or `FRONTEND_ORIGINS`), an evidence bucket (`S3_BUCKET` or `EVIDENCE_S3_BUCKET`) and the AWS keys. Without `SMTP_*` it boots and logs a warning, but password reset and invitation emails fail; without the Flipper credentials it boots with `/flipper` and `/sidekiq` switched off. With `SMS_ENABLED=true` it also needs `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM_NUMBER` or `TWILIO_MESSAGING_SERVICE_SID`.
 - S3: create a dedicated IAM user that can only `s3:GetObject`, `s3:PutObject` and `s3:DeleteObject` on this one private bucket.
 - Heroku Scheduler: run `bin/rails auth:purge_expired_credentials`, `bin/rails email_logs:purge_expired` and `bin/rails sms_logs:purge_expired` daily.
 - Optional: `SENTRY_DSN` turns on error reporting (no personal data is sent).

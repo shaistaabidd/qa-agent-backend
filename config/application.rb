@@ -1,6 +1,7 @@
 require_relative "boot"
 
 require "rails"
+require "uri"
 require "active_model/railtie"
 require "active_job/railtie"
 require "active_record/railtie"
@@ -46,8 +47,27 @@ module QaAgentBackend
       worker_api_token: ENV.fetch("AGENT_WORKER_API_TOKEN", nil),
       api_token: ENV.fetch("AGENT_API_TOKEN", nil)
     }
-    config.x.frontend_url = ENV.fetch("FRONTEND_URL", "http://localhost:5173")
-    config.x.cors_allowed_origins = ENV.fetch("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",").map(&:strip)
+    # The existing Heroku config vars from before the move onto the boilerplate (APP_BASE_URL, FRONTEND_ORIGINS,
+    # EVIDENCE_S3_BUCKET) keep working. The boilerplate's own names (APP_HOST, CORS_ALLOWED_ORIGINS, S3_BUCKET,
+    # FRONTEND_URL, ALLOWED_HOSTS) win when set, so nothing has to be renamed to deploy.
+    #
+    # app_host is "host" or "host:port" (what mailer URL options and the worker callback need), taken from
+    # APP_HOST, else from the full URL in APP_BASE_URL.
+    app_host_from_base_url = lambda do
+      uri = URI.parse(ENV["APP_BASE_URL"].to_s)
+      next unless uri.host
+
+      uri.port == uri.default_port ? uri.host : "#{uri.host}:#{uri.port}"
+    rescue URI::InvalidURIError
+      nil
+    end
+    config.x.app_host = ENV["APP_HOST"].presence || app_host_from_base_url.call
+
+    cors_origins = ENV["CORS_ALLOWED_ORIGINS"].presence || ENV["FRONTEND_ORIGINS"].presence
+    config.x.cors_allowed_origins = (cors_origins || "http://localhost:5173").split(",").map(&:strip)
+    config.x.frontend_url = ENV["FRONTEND_URL"].presence ||
+                            (cors_origins ? config.x.cors_allowed_origins.first : "http://localhost:5173")
+    config.x.s3_bucket = ENV["S3_BUCKET"].presence || ENV["EVIDENCE_S3_BUCKET"].presence
 
     # SMS always go through Twilio. In development use Twilio's test credentials
     # (nothing is sent); production requires the live ones (see production.rb).

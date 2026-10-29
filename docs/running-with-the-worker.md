@@ -33,6 +33,6 @@ Seed a super admin with `SUPER_ADMIN_EMAIL=you@example.com SUPER_ADMIN_PASSWORD=
 5. On Runs, dispatch the feature as that role. The row should go queued, then running (the list refreshes by itself), then completed.
 6. Open the run: the summary, endpoints and audit log should be filled in. Open Issues: findings appear, each opening to its evidence.
 
-If a run stays `queued`, check Sidekiq (`/sidekiq`, protected with `FLIPPER_UI_USERNAME` and `FLIPPER_UI_PASSWORD`). If it fails straight away, the API could not reach the worker: check `AGENT_WORKER_BASE_URL` and the worker token. A run the worker loses is failed automatically after `Run::STALE_AFTER` by `bin/rails runs:fail_stale`; run it from a scheduler.
+If a run stays `queued`, check Sidekiq (`/sidekiq`, protected with `FLIPPER_UI_USERNAME` and `FLIPPER_UI_PASSWORD`; not routed in production until both are set). If it fails straight away, the API could not reach the worker: check `AGENT_WORKER_BASE_URL` and the worker token. A run the worker loses is failed automatically after `Run::STALE_AFTER` by `bin/rails runs:fail_stale`; run it from a scheduler.
 
 The worker's three calls back to the API are described in [agent-contract.md](agent-contract.md).

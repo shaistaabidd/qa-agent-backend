@@ -7,11 +7,12 @@ Rails.application.routes.draw do
   get "/auth/google", to: "google_sign_ins#new", as: :google_sign_in
   get "/auth/google/callback", to: "google_sign_ins#callback", as: :google_sign_in_callback
 
-  # Feature-flag dashboard, Basic Auth-protected when credentials are set - see config/initializers/flipper_ui.rb.
-  mount FlipperUi.app, at: "/flipper"
-
-  # Background-job dashboard, Basic Auth-protected - see config/initializers/sidekiq_web.rb.
-  mount SidekiqUi.app, at: "/sidekiq"
+  # Admin dashboards, Basic Auth-protected. Production only routes them once FLIPPER_UI_USERNAME and
+  # FLIPPER_UI_PASSWORD are set - see config/initializers/flipper_ui.rb and sidekiq_web.rb.
+  if FlipperUi.exposed?
+    mount FlipperUi.app, at: "/flipper"
+    mount SidekiqUi.app, at: "/sidekiq"
+  end
 
   mount LetterOpenerWeb::Engine, at: "/letter_opener" if Rails.env.development?
 end

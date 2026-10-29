@@ -14,7 +14,9 @@ Rails.application.configure do
   config.force_ssl = true
   config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } } }
 
-  config.hosts = ENV.fetch("ALLOWED_HOSTS").split(",").map(&:strip)
+  # Needs the app's own address: APP_HOST or the existing APP_BASE_URL (see config/application.rb).
+  app_host = config.x.app_host || raise(KeyError, "Set APP_HOST or APP_BASE_URL")
+  config.hosts = ENV["ALLOWED_HOSTS"].presence&.split(",")&.map(&:strip) || [app_host.split(":").first]
   config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
 
   config.log_tags = [:request_id]
@@ -25,18 +27,19 @@ Rails.application.configure do
   config.active_support.report_deprecations = false
 
   config.action_mailer.perform_caching = false
-  config.action_mailer.default_url_options = { host: ENV.fetch("APP_HOST"), protocol: "https" }
+  config.action_mailer.default_url_options = { host: app_host, protocol: "https" }
   config.action_mailer.delivery_method = :smtp
+  # Mail is only needed for sign-in codes, password resets and invitations. Without SMTP settings the API
+  # still boots (the worker and the QA screens don't send mail) and those emails fail when they are sent.
+  warn "SMTP_ADDRESS is not set: password reset and invitation emails will fail" if ENV["SMTP_ADDRESS"].blank?
   config.action_mailer.smtp_settings = {
-    address: ENV.fetch("SMTP_ADDRESS"),
+    address: ENV.fetch("SMTP_ADDRESS", "localhost"),
     port: ENV.fetch("SMTP_PORT", 587).to_i,
-    user_name: ENV.fetch("SMTP_USERNAME"),
-    password: ENV.fetch("SMTP_PASSWORD"),
+    user_name: ENV.fetch("SMTP_USERNAME", nil),
+    password: ENV.fetch("SMTP_PASSWORD", nil),
     authentication: :plain,
     enable_starttls_auto: true
   }
-
-  config.x.frontend_url = ENV.fetch("FRONTEND_URL")
 
   # SMS is opt-in: Twilio is only required at boot once SMS_ENABLED=true. Delivery is
   # still gated per user by the sms_enabled feature flag.
@@ -53,13 +56,15 @@ Rails.application.configure do
   end
 
   # Fail at boot, not on the first upload, when S3 isn't configured.
-  ENV.fetch("S3_BUCKET")
+  config.x.s3_bucket || raise(KeyError, "Set S3_BUCKET (or the existing EVIDENCE_S3_BUCKET)")
   %w[AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY].each do |name|
     next if ENV[name].present?
 
     raise KeyError, "Set #{name} for production storage"
   end
-  config.x.cors_allowed_origins = ENV.fetch("CORS_ALLOWED_ORIGINS").split(",").map(&:strip)
+  # Browsers may only call the API from the frontend; there is no localhost default in production.
+  ENV["CORS_ALLOWED_ORIGINS"].presence || ENV["FRONTEND_ORIGINS"].presence ||
+    raise(KeyError, "Set CORS_ALLOWED_ORIGINS (or the existing FRONTEND_ORIGINS)")
 
   config.i18n.fallbacks = true
 
