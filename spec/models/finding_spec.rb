@@ -42,5 +42,14 @@ RSpec.describe Finding do
 
       expect(finding.screenshot_url).to be_present
     end
+
+    it "is nil, not an error, when the storage service can't be built" do
+      finding = create(:finding)
+      finding.screenshot.attach(io: file_fixture("screenshot.png").open, filename: "screenshot.png",
+                                content_type: "image/png")
+      allow(finding.screenshot.blob).to receive(:url).and_raise(ArgumentError, "missing required option :name")
+
+      expect(finding.screenshot_url).to be_nil
+    end
   end
 end

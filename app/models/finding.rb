@@ -21,8 +21,13 @@ class Finding < ApplicationRecord
 
   scope :from_source, ->(source) { where(source:) }
 
+  # A screenshot whose storage service can't be reached (for example a bucket that isn't configured in
+  # this environment) reads as "no screenshot" rather than failing the whole list it appears in.
   def screenshot_url
     screenshot.url(expires_in: SCREENSHOT_URL_TTL) if screenshot.attached?
+  rescue StandardError => e
+    Rails.logger.warn("Finding##{id} screenshot unavailable: #{e.class}: #{e.message}")
+    nil
   end
 
   private
