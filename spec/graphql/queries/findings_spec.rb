@@ -127,6 +127,30 @@ RSpec.describe "Finding queries", type: :graphql do
     end
   end
 
+  describe "fetchFinding" do
+    let(:query) do
+      "query($id: ID!) { fetchFinding(id: $id) { id title runId severity details timesSeen issueStatus lastSeenAt } }"
+    end
+
+    it "returns one finding with its issue's history" do
+      first = finished_run
+      latest = finished_run
+      create(:finding, run: first, title: "Crash", fingerprint: "crash")
+      finding = create(:finding, run: latest, title: "Crash", fingerprint: "crash", details: { "type" => "n_plus_one" })
+
+      result = execute_graphql(query, variables: { id: finding.id.to_s }, as: user).dig("data", "fetchFinding")
+
+      expect(result).to include("id" => finding.id.to_s, "runId" => latest.id.to_s, "timesSeen" => 2,
+                                "issueStatus" => "ongoing", "details" => { "type" => "n_plus_one" })
+    end
+
+    it "answers not found for a finding in someone else's project" do
+      other = create(:finding)
+
+      expect(error_codes(execute_graphql(query, variables: { id: other.id.to_s }, as: user))).to eq(["NOT_FOUND"])
+    end
+  end
+
   describe "fetchFindingsSummary" do
     let(:query) do
       "query($id: ID!) { fetchFindingsSummary(projectId: $id) { total resolved totalFindings postedToClickUp " \

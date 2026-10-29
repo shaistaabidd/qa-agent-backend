@@ -14,6 +14,7 @@ module Types
     field :fetch_email_log, resolver: Queries::EmailLogs::FetchEmailLog
     field :fetch_coverage, resolver: Queries::Projects::FetchCoverage
     field :fetch_feature_flags, resolver: Queries::FeatureFlags::FetchFeatureFlags
+    field :fetch_finding, resolver: Queries::Findings::FetchFinding
     field :fetch_findings_summary, resolver: Queries::Findings::FetchFindingsSummary
     field :fetch_github_authorize_url, resolver: Queries::Integrations::FetchGithubAuthorizeUrl
     field :fetch_github_install_url, resolver: Queries::Integrations::FetchGithubInstallUrl

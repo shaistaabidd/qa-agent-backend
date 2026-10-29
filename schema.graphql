@@ -1859,6 +1859,16 @@ type Query {
   ): FeatureFlags!
 
   """
+  One finding in a project the user can see, with its issue's history across runs
+  """
+  fetchFinding(
+    """
+    Finding to fetch
+    """
+    id: ID!
+  ): Finding!
+
+  """
   Open and resolved issue counts for a project
   """
   fetchFindingsSummary(
