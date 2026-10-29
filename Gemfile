@@ -30,6 +30,15 @@ gem "phonelib", "0.10.27"
 # SMS through Twilio (official SDK); 7.12 was 9 days old when added.
 gem "twilio-ruby", "~> 7.11.3"
 
+# QA Agent domain ---------------------------------------------------------
+# Run lifecycle state machine.
+gem "aasm", "~> 6.0"
+# Outbound calls to the agent worker and ClickUp.
+gem "httparty", "~> 0.24"
+# GitHub App authentication (RS256 app JWT) and the Contents API.
+gem "jwt", "~> 3.2"
+gem "octokit", "~> 10.0"
+
 # Files ------------------------------------------------------------------
 gem "active_storage_validations", "~> 4.1"
 gem "aws-sdk-s3", "~> 1.200", require: false

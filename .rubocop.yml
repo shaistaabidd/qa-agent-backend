@@ -43,6 +43,7 @@ Metrics/MethodLength:
   Max: 15
   Exclude:
     - "db/migrate/**/*"
+    - "lib/qa_probe/**/*"
 
 Rails/I18nLocaleTexts:
   Enabled: true
@@ -97,6 +98,27 @@ Rails/Output:
 Metrics/AbcSize:
   Exclude:
     - "db/migrate/**/*"
+    # Ported as-is: GitHub App token handling and the QA probe's instrumentation.
+    - "app/services/git_hub_app_service.rb"
+    - "lib/qa_probe/**/*"
+
+# The QA probe is self-contained instrumentation (see lib/qa_probe.rb), kept whole rather than split to fit a count.
+Metrics/CyclomaticComplexity:
+  Exclude:
+    - "lib/qa_probe/**/*"
+
+# The probe strips "#{Rails.root}/" from paths; the cop's suggestion drops the trailing slash.
+Rails/RootPathnameMethods:
+  Exclude:
+    - "lib/qa_probe/**/*"
+
+Rails/FilePath:
+  Exclude:
+    - "lib/qa_probe/**/*"
+
+Metrics/PerceivedComplexity:
+  Exclude:
+    - "lib/qa_probe/**/*"
 
 Rails/CreateTableWithTimestamps:
   Exclude:
@@ -114,6 +136,7 @@ RSpec/DescribeClass:
   Exclude:
     - "spec/graphql/mutations/**/*"
     - "spec/graphql/queries/**/*"
+    - "spec/graphql/agent_contract_spec.rb"
     - "spec/requests/**/*"
 
 Metrics/ClassLength:
@@ -122,3 +145,4 @@ Metrics/ClassLength:
     # The account model every auth flow touches (sessions, codes, invitations,
     # access, email changes); it reads better whole than split to fit a count.
     - "app/models/user.rb"
+    - "lib/qa_probe/**/*"

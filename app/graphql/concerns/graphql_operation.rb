@@ -12,12 +12,20 @@ module GraphqlOperation
     authorize :session, through: :current_session
 
     class_attribute :authentication_required, default: true
+    class_attribute :agent_only, default: false
     class_attribute :rate_limit_rules, default: []
   end
 
   class_methods do
     def allow_unauthenticated!
       self.authentication_required = false
+    end
+
+    # For operations only the agent worker calls (with X-Agent-Token): there is no signed-in user, but
+    # the agent token is required, and a user's own session never stands in for it.
+    def agent_only!
+      self.authentication_required = false
+      self.agent_only = true
     end
 
     # `by` is evaluated on the operation instance with its arguments and picks
@@ -30,6 +38,7 @@ module GraphqlOperation
 
   def ready?(**arguments)
     raise GraphqlErrors.unauthenticated if authentication_required && current_user.nil?
+    raise GraphqlErrors.unauthenticated if agent_only && !context[:agent]
     raise GraphqlErrors.rate_limited if rate_limit_exceeded?(arguments)
 
     super

@@ -10,7 +10,8 @@ class GraphqlController < ApplicationController
       params[:query],
       variables: graphql_variables,
       operation_name: params[:operationName],
-      context: { current_session: Current.session, current_user: Current.user, ip_address: Current.ip_address }
+      context: { current_session: Current.session, current_user: Current.user, ip_address: Current.ip_address,
+                 agent: agent_authenticated? }
     )
 
     render json: result
@@ -33,6 +34,13 @@ class GraphqlController < ApplicationController
 
     session.record_activity!
     session
+  end
+
+  # Machine-to-machine auth for the agent worker calling back: a shared secret, never a user.
+  def agent_authenticated?
+    token = request.headers["X-Agent-Token"]
+    expected = Rails.configuration.x.agent[:api_token]
+    token.present? && expected.present? && ActiveSupport::SecurityUtils.secure_compare(token, expected)
   end
 
   def render_malformed_variables

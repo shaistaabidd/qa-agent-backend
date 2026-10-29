@@ -15,7 +15,9 @@ module QaAgentBackend
   class Application < Rails::Application
     config.load_defaults 8.1
 
-    config.autoload_lib(ignore: %w[assets tasks])
+    # QaProbe is required explicitly by its initializer (it installs middleware, which must not be
+    # reloadable), so Zeitwerk stays away from it.
+    config.autoload_lib(ignore: %w[assets tasks qa_probe.rb qa_probe])
 
     config.api_only = true
     config.time_zone = "UTC"
@@ -25,7 +27,21 @@ module QaAgentBackend
     config.active_job.enqueue_after_transaction_commit = true
     config.active_storage.variant_processor = :disabled
 
+    # Role credentials are encrypted at rest. This must be set here: ActiveRecord reads it in its own
+    # initializer, before config/initializers run. Production needs real keys (rails db:encryption:init);
+    # development and test fall back to fixed throwaway ones so a fresh clone boots.
+    encryption_key = ->(name) { Rails.env.production? ? ENV.fetch(name) : ENV.fetch(name, "local-#{name.downcase}") }
+    config.active_record.encryption.primary_key = encryption_key.call("AR_ENCRYPTION_PRIMARY_KEY")
+    config.active_record.encryption.deterministic_key = encryption_key.call("AR_ENCRYPTION_DETERMINISTIC_KEY")
+    config.active_record.encryption.key_derivation_salt = encryption_key.call("AR_ENCRYPTION_KEY_DERIVATION_SALT")
+
     config.x.app_name = ENV.fetch("APP_NAME", "QA Agent")
+    # The agent worker: where runs are dispatched, and the shared secrets for both directions.
+    config.x.agent = {
+      worker_base_url: ENV.fetch("AGENT_WORKER_BASE_URL", nil),
+      worker_api_token: ENV.fetch("AGENT_WORKER_API_TOKEN", nil),
+      api_token: ENV.fetch("AGENT_API_TOKEN", nil)
+    }
     config.x.frontend_url = ENV.fetch("FRONTEND_URL", "http://localhost:5173")
     config.x.cors_allowed_origins = ENV.fetch("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",").map(&:strip)
 
@@ -51,7 +67,8 @@ module QaAgentBackend
       people_details: ENV["GOOGLE_PEOPLE_DETAILS"] == "true"
     }
 
-    config.x.redis = { url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0") }
+    # Heroku's Redis Cloud add-on provides REDISCLOUD_URL; locally and with other Redis providers it is REDIS_URL.
+    config.x.redis = { url: ENV["REDISCLOUD_URL"].presence || ENV.fetch("REDIS_URL", "redis://localhost:6379/0") }
     # Heroku Redis serves TLS with a self-signed certificate; set REDIS_SSL_VERIFY_NONE=true only there.
     config.x.redis[:ssl_params] = { verify_mode: OpenSSL::SSL::VERIFY_NONE } if ENV["REDIS_SSL_VERIFY_NONE"] == "true"
     config.cache_store = :redis_cache_store, config.x.redis

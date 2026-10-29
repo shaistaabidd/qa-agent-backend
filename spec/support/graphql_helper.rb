@@ -1,12 +1,13 @@
 module GraphqlHelper
   # Runs the real schema end to end. Pass `as:` (a user) or `session:` to execute
-  # as a signed-in caller; nothing about authentication is stubbed.
-  def execute_graphql(query, variables: {}, as: nil, session: nil)
+  # as a signed-in caller, or `agent: true` as the agent worker (X-Agent-Token); nothing
+  # about authentication is stubbed.
+  def execute_graphql(query, variables: {}, as: nil, session: nil, agent: false)
     session ||= create(:session, user: as) if as
     QaAgentBackendSchema.execute(
       query,
       variables:,
-      context: { current_session: session, current_user: session&.user, ip_address: "127.0.0.1" }
+      context: { current_session: session, current_user: session&.user, ip_address: "127.0.0.1", agent: }
     ).to_h
   end
 

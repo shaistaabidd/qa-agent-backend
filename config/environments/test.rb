@@ -8,6 +8,9 @@ Rails.application.configure do
   config.x.google_oauth = { client_id: "test-client-id.apps.googleusercontent.com", client_secret: "test-client-secret",
                             redirect_uri: "http://api.example.test/auth/google/callback", people_details: true }
 
+  config.x.agent = { worker_base_url: "http://worker.test", worker_api_token: "worker-api-token",
+                     api_token: "agent-api-token" }
+
   # Flipper's test helper resets flags in a before hook, which runs after a spec's own
   # around hooks and so undoes them; spec/support/flipper_helper.rb resets them instead.
   config.flipper.test_help = false

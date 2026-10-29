@@ -1,6 +1,9 @@
 require "rails_helper"
 
 RSpec.describe User do
+  it { is_expected.to have_many(:memberships).dependent(:destroy) }
+  it { is_expected.to have_many(:projects).through(:memberships) }
+
   describe "validations" do
     subject(:user) { build(:user) }
 

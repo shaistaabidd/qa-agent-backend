@@ -10,6 +10,7 @@ Rails.application.config.filter_parameters += %i[
   passw email secret token _key crypt salt certificate otp
   first_name last_name full_name phone google_uid search_document
   recipient body
+  credential
 ]
 # Sign in with Google's callback and handoff values (an OAuth code, its state, the nonce).
 Rails.application.config.filter_parameters += [/\Acode\z/, /\Astate\z/, /\Anonce\z/]

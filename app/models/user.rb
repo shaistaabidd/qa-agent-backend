@@ -19,6 +19,8 @@ class User < ApplicationRecord
   belongs_to :invited_by, class_name: "User", optional: true
   has_many :sessions, dependent: :delete_all
   has_many :one_time_passwords, dependent: :delete_all
+  has_many :memberships, dependent: :destroy
+  has_many :projects, through: :memberships
 
   enum :role, { user: 0, super_admin: 1 }, validate: true
 

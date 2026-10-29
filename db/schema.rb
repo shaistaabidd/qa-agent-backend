@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_23_062005) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_29_100008) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -43,6 +43,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_062005) do
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
+  create_table "audit_log_entries", force: :cascade do |t|
+    t.bigint "run_id", null: false
+    t.string "action_taken", null: false
+    t.string "target_element"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["run_id"], name: "index_audit_log_entries_on_run_id"
+  end
+
   create_table "email_logs", force: :cascade do |t|
     t.string "recipient", null: false
     t.string "mailer", null: false
@@ -63,6 +72,45 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_062005) do
     t.index ["status", "created_at", "id"], name: "index_email_logs_on_status_and_created_at_and_id"
   end
 
+  create_table "findings", force: :cascade do |t|
+    t.bigint "run_id", null: false
+    t.string "title", null: false
+    t.jsonb "repro_steps", default: [], null: false
+    t.integer "severity", null: false
+    t.string "category"
+    t.jsonb "details", default: {}, null: false
+    t.string "fingerprint"
+    t.string "source", default: "frontend", null: false
+    t.string "clickup_task_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["fingerprint"], name: "index_findings_on_fingerprint"
+    t.index ["run_id", "title"], name: "index_findings_on_run_id_and_title", unique: true
+    t.index ["source"], name: "index_findings_on_source"
+  end
+
+  create_table "integrations", force: :cascade do |t|
+    t.bigint "project_id", null: false
+    t.integer "integration_type", null: false
+    t.string "external_account_id"
+    t.string "repo_full_name"
+    t.string "scope"
+    t.datetime "connected_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["project_id", "integration_type"], name: "index_integrations_on_project_id_and_integration_type", unique: true
+  end
+
+  create_table "memberships", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.bigint "project_id", null: false
+    t.integer "role", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["project_id"], name: "index_memberships_on_project_id"
+    t.index ["user_id", "project_id"], name: "index_memberships_on_user_id_and_project_id", unique: true
+  end
+
   create_table "one_time_passwords", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.integer "purpose", null: false
@@ -73,6 +121,54 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_062005) do
     t.datetime "updated_at", null: false
     t.index ["expires_at"], name: "index_one_time_passwords_on_expires_at"
     t.index ["user_id", "purpose"], name: "index_one_time_passwords_on_user_id_and_purpose", unique: true
+  end
+
+  create_table "projects", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "target_url", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "repo_connection_id"
+    t.index ["created_at", "id"], name: "index_projects_on_created_at_and_id"
+    t.index ["repo_connection_id"], name: "index_projects_on_repo_connection_id"
+  end
+
+  create_table "role_credentials", force: :cascade do |t|
+    t.bigint "project_id", null: false
+    t.string "role_name", null: false
+    t.text "encrypted_credential_ref", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["project_id", "role_name"], name: "index_role_credentials_on_project_id_and_role_name", unique: true
+  end
+
+  create_table "runs", force: :cascade do |t|
+    t.bigint "project_id", null: false
+    t.bigint "scope_feature_id", null: false
+    t.string "role_name", null: false
+    t.integer "status", default: 0, null: false
+    t.datetime "started_at"
+    t.datetime "finished_at"
+    t.jsonb "network_log", default: [], null: false
+    t.jsonb "summary", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["project_id", "created_at", "id"], name: "index_runs_on_project_id_and_created_at_and_id"
+    t.index ["project_id", "status"], name: "index_runs_on_project_id_and_status"
+    t.index ["scope_feature_id"], name: "index_runs_on_scope_feature_id"
+    t.index ["started_at"], name: "index_runs_on_started_at_while_running", where: "(status = 1)"
+  end
+
+  create_table "scope_features", force: :cascade do |t|
+    t.bigint "project_id", null: false
+    t.string "name", null: false
+    t.string "route"
+    t.string "source"
+    t.boolean "approved", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["project_id", "created_at", "id"], name: "index_scope_features_on_project_id_and_created_at_and_id"
+    t.index ["project_id", "name"], name: "index_scope_features_on_project_id_and_name", unique: true
   end
 
   create_table "sessions", force: :cascade do |t|
@@ -153,7 +249,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_062005) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "audit_log_entries", "runs", on_delete: :cascade
+  add_foreign_key "findings", "runs", on_delete: :cascade
+  add_foreign_key "integrations", "projects", on_delete: :cascade
+  add_foreign_key "memberships", "projects", on_delete: :cascade
+  add_foreign_key "memberships", "users", on_delete: :cascade
   add_foreign_key "one_time_passwords", "users", on_delete: :cascade
+  add_foreign_key "projects", "integrations", column: "repo_connection_id", on_delete: :nullify
+  add_foreign_key "role_credentials", "projects", on_delete: :cascade
+  add_foreign_key "runs", "projects", on_delete: :cascade
+  add_foreign_key "runs", "scope_features", on_delete: :cascade
+  add_foreign_key "scope_features", "projects", on_delete: :cascade
   add_foreign_key "sessions", "users", column: "impersonator_id", on_delete: :cascade
   add_foreign_key "sessions", "users", on_delete: :cascade
   add_foreign_key "sms_logs", "users", on_delete: :nullify

@@ -23,6 +23,26 @@ module Types
     field :archive_user, mutation: Mutations::Users::ArchiveUser
     field :update_user_access, mutation: Mutations::Users::UpdateUserAccess
 
+    # Projects and scope
+    field :create_project, mutation: Mutations::Projects::CreateProject
+    field :scan_codebase, mutation: Mutations::ScopeFeatures::ScanCodebase
+    field :approve_scope_feature, mutation: Mutations::ScopeFeatures::ApproveScopeFeature
+    field :set_role_credential, mutation: Mutations::RoleCredentials::SetRoleCredential
+
+    # Runs
+    field :dispatch_run, mutation: Mutations::Runs::DispatchRun
+
+    # Integrations
+    field :complete_github_installation, mutation: Mutations::Integrations::CompleteGithubInstallation
+    field :authorize_github_user, mutation: Mutations::Integrations::AuthorizeGithubUser
+    field :select_github_installation, mutation: Mutations::Integrations::SelectGithubInstallation
+    field :connect_github, mutation: Mutations::Integrations::ConnectGithub
+    field :connect_click_up, mutation: Mutations::Integrations::ConnectClickUp
+
+    # Agent worker (X-Agent-Token): see docs/agent-contract.md
+    field :receive_run_result, mutation: Mutations::Runs::ReceiveResult
+    field :create_finding, mutation: Mutations::Findings::CreateFinding
+
     # Invitations
     field :create_invitation, mutation: Mutations::Invitations::CreateInvitation
     field :resend_invitation, mutation: Mutations::Invitations::ResendInvitation

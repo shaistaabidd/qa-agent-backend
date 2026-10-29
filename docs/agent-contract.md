@@ -1,6 +1,6 @@
 # Agent contract (frozen)
 
-`qa-agent-worker` is a separate service. It receives dispatched runs over HTTP and reports back through this API's GraphQL endpoint. Changing anything below breaks the worker, so it stays byte-compatible. The worker only depends on what is listed here: it treats any entry in `errors` as a failure and logs the `message`, and it does not read error codes.
+`qa-agent-worker` is a separate service. It receives dispatched runs over HTTP and reports back through this API's GraphQL endpoint. Changing anything below breaks the worker, so it stays byte-compatible. The worker only depends on what is listed here: it treats any entry in `errors` as a failure and logs the `message`, and it does not read error codes (errors carry `extensions.code`, for example `UNAUTHENTICATED` or `RUN_NOT_ACTIVE`).
 
 ## Backend to worker: `POST {AGENT_WORKER_BASE_URL}/runs`
 
@@ -13,7 +13,7 @@ Headers: `Authorization: Bearer {AGENT_WORKER_API_TOKEN}`, `Content-Type: applic
   "role_name": "admin",
   "scope_feature": { "name": "Checkout", "route": "/checkout" },
   "callback_url": "{scheme}://{APP_HOST}/graphql",
-  "credential_fetch_token": "<JWT, typ credential_fetch, 1 hour>"
+  "credential_fetch_token": "<opaque signed token, valid 1 hour>"
 }
 ```
 
@@ -33,10 +33,10 @@ Keep these input type names (`CreateFindingInput`, `ReceiveResultInput`): they c
 
 ## Behaviour the specs pin down
 
-- `resolveRoleCredential` and both mutations reject a missing or wrong agent token, including a valid user session.
+- `resolveRoleCredential` and both mutations reject a missing or wrong agent token (`UNAUTHENTICATED`), including a valid user session.
 - `resolveRoleCredential` refuses a run that is not `running`.
 - `createFinding` rejects a duplicate title within the same run.
 - `createFinding` with a screenshot attaches it and enqueues the ClickUp post job.
 - `receiveRunResult` records the audit log entries and moves the run to the reported status.
 
-The request specs in `spec/requests/graphql/` (runs, findings) replay these cases and must keep passing unchanged in behaviour.
+`spec/graphql/agent_contract_spec.rb` and `spec/requests/agent_contract_spec.rb` replay these cases with the worker's own documents (the second over HTTP, including the multipart upload) and must keep passing.

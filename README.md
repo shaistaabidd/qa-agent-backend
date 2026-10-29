@@ -41,6 +41,34 @@ There is no CI yet; run these before pushing.
 | Who may do what | `app/policies/**` |
 | Email delivery log | `app/mailers/concerns/email_logging.rb` |
 
+## QA Agent domain
+
+A **project** is an app under test. Each project has **memberships** (`member` reads; `admin` also connects integrations, stores credentials, approves scope, scans and runs), a GitHub App **integration** that is scanned into **scope features**, per-role **credentials** (encrypted at rest, write-only through the API), and **runs** of an approved feature as one role. The Playwright worker (`qa-agent-worker`) reports each run's **findings** and result back; findings sharing a fingerprint are one issue, with Sentry-style new/ongoing/regressed/resolved status (`Findings::IssueStats`).
+
+| Concern | Where |
+| --- | --- |
+| Who may use a project (members read, admins change, super admins both) | `app/policies/project_policy.rb`, `app/graphql/concerns/project_access.rb` |
+| Run lifecycle (`queued`, `running`, `blocked`, `completed`, `failed`) | `app/models/run.rb` |
+| Dispatching to the worker; stale runs failed every few minutes | `app/services/agent_worker_client.rb`, `RunDispatchJob`, `FailStaleRunsJob` (`bin/rails runs:fail_stale`) |
+| GitHub App, repository scan | `app/services/git_hub_*.rb`, `codebase_analyzer.rb`, `app/services/integrations/**` |
+| Issue stats, findings list, dashboard | `app/queries/findings/**`, `app/queries/projects/coverage.rb` |
+| The worker's three operations (`X-Agent-Token`) | `docs/agent-contract.md`, `GraphqlOperation.agent_only!` |
+| Request and job instrumentation for QA runs | `lib/qa_probe/**` (off unless `QA_PROBE_TOKEN` is set) |
+
+Environment (add these to `.env`; production fails to boot without the encryption keys):
+
+| Key | Purpose |
+| --- | --- |
+| `AR_ENCRYPTION_PRIMARY_KEY`, `AR_ENCRYPTION_DETERMINISTIC_KEY`, `AR_ENCRYPTION_KEY_DERIVATION_SALT` | Encrypt role credentials. Generate with `bin/rails db:encryption:init`. Development and test fall back to fixed throwaway values. |
+| `AGENT_API_TOKEN` | Shared secret the worker sends as `X-Agent-Token` |
+| `AGENT_WORKER_BASE_URL`, `AGENT_WORKER_API_TOKEN` | Where runs are dispatched, and the bearer token for it |
+| `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_SLUG`, `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET` | The GitHub App |
+| `CLICKUP_API_TOKEN` | Posting findings to ClickUp |
+| `QA_PROBE_TOKEN`, `QA_PROBE_ENABLED`, `QA_PROBE_SLOW_SQL_MS`, `QA_PROBE_N_PLUS_ONE_THRESHOLD`, `QA_PROBE_IGNORED_EXCEPTIONS` | The probe |
+| `REDISCLOUD_URL` | Heroku Redis Cloud; takes precedence over `REDIS_URL` |
+
+The evidence bucket is the boilerplate's `S3_BUCKET`, and the worker's callback URL is built from `APP_HOST`.
+
 ## Roles
 
 - **user**: registers publicly or is invited; manages only their own account.
