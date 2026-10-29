@@ -1,80 +1,65 @@
-require_relative 'boot'
+require_relative "boot"
 
-require 'rails'
-# Pick the frameworks you want:
-require 'active_model/railtie'
-require 'active_job/railtie'
-require 'active_record/railtie'
-require 'active_storage/engine'
-require 'action_controller/railtie'
-require 'action_mailer/railtie'
-require 'action_mailbox/engine'
-require 'action_text/engine'
-require 'action_view/railtie'
-require 'action_cable/engine'
-# require "rails/test_unit/railtie"
+require "rails"
+require "active_model/railtie"
+require "active_job/railtie"
+require "active_record/railtie"
+require "active_storage/engine"
+require "action_controller/railtie"
+require "action_mailer/railtie"
+require "action_view/railtie"
 
-# Require the gems listed in Gemfile, including any gems
-# you've limited to :test, :development, or :production.
 Bundler.require(*Rails.groups)
 
 module QaAgentBackend
   class Application < Rails::Application
-    config.active_record.query_log_tags_enabled = true
-    config.active_record.query_log_tags = [
-      # Rails query log tags:
-      :application, :controller, :action, :job,
-      # GraphQL-Ruby query log tags:
-      {
-        current_graphql_operation: -> { GraphQL::Current.operation_name },
-        current_graphql_field: -> { GraphQL::Current.field&.path },
-        current_dataloader_source: -> { GraphQL::Current.dataloader_source_class }
-      }
-    ]
-    # Initialize configuration defaults for originally generated Rails version.
-    config.load_defaults 7.0
+    config.load_defaults 8.1
 
-    # Configuration for the application, engines, and railties goes here.
-    #
-    # These settings can be overridden in specific environments using the files
-    # in config/environments, which are processed later.
-    #
-    # config.time_zone = "Central Time (US & Canada)"
-    # config.eager_load_paths << Rails.root.join("extras")
+    config.autoload_lib(ignore: %w[assets tasks])
 
-    # Only loads a smaller set of middleware suitable for API only apps.
-    # Middleware like session, flash, cookies can be added back manually.
-    # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+    config.time_zone = "UTC"
 
+    # Background jobs run on Sidekiq only (Redis 7+). See CLAUDE.md.
     config.active_job.queue_adapter = :sidekiq
-    config.eager_load_paths << Rails.root.join('lib')
-    # QaProbe is required explicitly by its initializer (it installs middleware,
-    # which must not be reloadable), so keep Zeitwerk away from it.
-    Rails.autoloaders.main.ignore(Rails.root.join('lib/qa_probe.rb'), Rails.root.join('lib/qa_probe'))
+    config.active_job.enqueue_after_transaction_commit = true
+    config.active_storage.variant_processor = :disabled
 
-    # Must be set here (not in config/initializers) — ActiveRecord::Railtie
-    # reads config.active_record.encryption during its own initializer, which
-    # runs before config/initializers/*.rb files are loaded. Values come from
-    # config/application.yml (figaro), not config/credentials.yml.enc.
-    config.active_record.encryption.primary_key = ENV.fetch('AR_ENCRYPTION_PRIMARY_KEY')
-    config.active_record.encryption.deterministic_key = ENV.fetch('AR_ENCRYPTION_DETERMINISTIC_KEY')
-    config.active_record.encryption.key_derivation_salt = ENV.fetch('AR_ENCRYPTION_KEY_DERIVATION_SALT')
+    config.x.app_name = ENV.fetch("APP_NAME", "QA Agent")
+    config.x.frontend_url = ENV.fetch("FRONTEND_URL", "http://localhost:5173")
+    config.x.cors_allowed_origins = ENV.fetch("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",").map(&:strip)
 
-    # Sidekiq::Web needs session/cookie middleware even though this is an
-    # api_only app (which strips them by default).
-    config.session_store :cookie_store, key: '_qa_agent_backend_session'
-    config.middleware.use ActionDispatch::Cookies
-    config.middleware.use config.session_store, config.session_options
+    # SMS always go through Twilio. In development use Twilio's test credentials
+    # (nothing is sent); production requires the live ones (see production.rb).
+    config.x.sms = {
+      account_sid: ENV.fetch("TWILIO_ACCOUNT_SID", nil),
+      auth_token: ENV.fetch("TWILIO_AUTH_TOKEN", nil),
+      from: ENV.fetch("TWILIO_FROM_NUMBER", nil),
+      messaging_service_sid: ENV.fetch("TWILIO_MESSAGING_SERVICE_SID", nil)
+    }
+
+    # Sign in with Google. The API runs the whole OAuth redirect, so the frontend holds
+    # no Google config. redirect_uri must be listed exactly in the Google OAuth client.
+    config.x.google_oauth = {
+      client_id: ENV.fetch("GOOGLE_CLIENT_ID", nil),
+      client_secret: Rails.application.credentials.dig(:google, :client_secret) ||
+                     ENV.fetch("GOOGLE_CLIENT_SECRET", nil),
+      redirect_uri: ENV.fetch("GOOGLE_REDIRECT_URI",
+                              "http://localhost:#{ENV.fetch("PORT", 3000)}/auth/google/callback"),
+      # "true" also asks Google for phone and birthday (People API sensitive scopes, which need
+      # Google's app verification before real users can grant them). Off: name, email and photo.
+      people_details: ENV["GOOGLE_PEOPLE_DETAILS"] == "true"
+    }
+
+    config.x.redis = { url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0") }
+    # Heroku Redis serves TLS with a self-signed certificate; set REDIS_SSL_VERIFY_NONE=true only there.
+    config.x.redis[:ssl_params] = { verify_mode: OpenSSL::SSL::VERIFY_NONE } if ENV["REDIS_SSL_VERIFY_NONE"] == "true"
+    config.cache_store = :redis_cache_store, config.x.redis
 
     config.generators do |g|
-      g.test_framework :rspec,
-                       fixtures: true,
-                       view_specs: false,
-                       helper_specs: false,
-                       routing_specs: false,
-                       request_specs: true
-      g.fixture_replacement :factory_bot, dir: 'spec/factories'
+      g.orm :active_record
+      g.test_framework :rspec, fixtures: false, view_specs: false, helper_specs: false, routing_specs: false
+      g.fixture_replacement :factory_bot, dir: "spec/factories"
     end
   end
 end

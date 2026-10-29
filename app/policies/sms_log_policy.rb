@@ -1,0 +1,2 @@
+class SmsLogPolicy < SuperAdminOnlyPolicy
+end

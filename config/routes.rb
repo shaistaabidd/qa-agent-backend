@@ -1,13 +1,14 @@
-require 'sidekiq/web'
-
 Rails.application.routes.draw do
-  post '/graphql', to: 'graphql#execute'
+  get "up" => "rails/health#show", as: :rails_health_check
 
-  # Auth is handled entirely via GraphQL mutations (LoginUser/RegisterUser);
-  # Devise is only used for its model concern (password hashing, etc.).
-  devise_for :users, skip: :all
+  post "/graphql", to: "graphql#execute"
 
-  mount GraphiQL::Rails::Engine, at: '/graphiql', graphql_path: '/graphql' if Rails.env.development?
+  # Sign in with Google: the browser's two stops on the API (see Auth::GoogleSignIn).
+  get "/auth/google", to: "google_sign_ins#new", as: :google_sign_in
+  get "/auth/google/callback", to: "google_sign_ins#callback", as: :google_sign_in_callback
 
-  mount Sidekiq::Web => '/sidekiq' unless Rails.env.test?
+  # Feature-flag dashboard, Basic Auth-protected when credentials are set - see config/initializers/flipper_ui.rb.
+  mount FlipperUi.app, at: "/flipper"
+
+  mount LetterOpenerWeb::Engine, at: "/letter_opener" if Rails.env.development?
 end

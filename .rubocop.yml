@@ -1,0 +1,124 @@
+plugins:
+  - rubocop-rails
+  - rubocop-rspec
+  - rubocop-rspec_rails
+  - rubocop-factory_bot
+  - rubocop-graphql
+
+AllCops:
+  TargetRubyVersion: 4.0
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - "bin/**/*"
+    - "db/schema.rb"
+    - "vendor/**/*"
+    - "tmp/**/*"
+
+Style/Documentation:
+  Enabled: false
+
+Style/FrozenStringLiteralComment:
+  Enabled: false
+
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes
+
+# Subclassing Data.define keeps constants and validation inside the value class.
+Style/DataInheritance:
+  Enabled: false
+
+Layout/LineLength:
+  Max: 120
+
+Metrics/BlockLength:
+  Exclude:
+    - "spec/**/*"
+    - "config/**/*"
+
+Metrics/MethodLength:
+  Max: 15
+  Exclude:
+    - "db/migrate/**/*"
+
+Rails/I18nLocaleTexts:
+  Enabled: true
+
+GraphQL/ExtractInputType:
+  Enabled: false
+
+GraphQL/ExtractType:
+  Enabled: false
+
+GraphQL/ObjectDescription:
+  Exclude:
+    - "app/graphql/types/base_*.rb"
+
+RSpec/ExampleLength:
+  Max: 20
+
+RSpec/MultipleExpectations:
+  Max: 5
+
+RSpec/NestedGroups:
+  Max: 4
+
+RSpec/MultipleMemoizedHelpers:
+  Max: 8
+
+# Services take their inputs in initialize; ApplicationService has no state to initialize.
+Lint/MissingSuper:
+  AllowedParentClasses:
+    - ApplicationService
+
+# Rails' own has_secure_password API and our token lookups follow the find_by_*_token naming.
+Rails/DynamicFindBy:
+  AllowedMethods:
+    - find_by_token
+    - find_by_password_reset_token
+    - find_by_invitation_token
+
+# Timestamps, counters and the atomic one-time-password upsert skip validations on purpose.
+Rails/SkipsModelValidations:
+  Exclude:
+    - "spec/**/*"
+  AllowedMethods:
+    - touch
+    - increment!
+    - upsert
+
+Rails/Output:
+  Exclude:
+    - "db/seeds.rb"
+
+Metrics/AbcSize:
+  Exclude:
+    - "db/migrate/**/*"
+
+Rails/CreateTableWithTimestamps:
+  Exclude:
+    - "db/migrate/*_create_active_storage_tables.rb"
+
+# Fields and arguments are ordered by meaning (identity first), not alphabetically.
+GraphQL/OrderedFields:
+  Enabled: false
+
+GraphQL/OrderedArguments:
+  Enabled: false
+
+# GraphQL and request specs describe an API flow, not a Ruby class.
+RSpec/DescribeClass:
+  Exclude:
+    - "spec/graphql/mutations/**/*"
+    - "spec/graphql/queries/**/*"
+    - "spec/requests/**/*"
+
+Metrics/ClassLength:
+  Exclude:
+    - "db/migrate/**/*"
+    # The account model every auth flow touches (sessions, codes, invitations,
+    # access, email changes); it reads better whole than split to fit a count.
+    - "app/models/user.rb"

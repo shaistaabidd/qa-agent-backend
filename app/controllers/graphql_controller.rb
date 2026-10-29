@@ -1,60 +1,50 @@
-# frozen_string_literal: true
-
 class GraphqlController < ApplicationController
-  include AuthenticableUser
+  include ActionController::HttpAuthentication::Token::ControllerMethods
+  include ActiveStorage::SetCurrent
+
+  before_action :set_current_request_details
+  rescue_from JSON::ParserError, with: :render_malformed_variables
 
   def execute
     result = QaAgentBackendSchema.execute(
       params[:query],
-      variables: prepare_variables(params[:variables]),
-      context: graphql_context,
-      operation_name: params[:operationName]
+      variables: graphql_variables,
+      operation_name: params[:operationName],
+      context: { current_session: Current.session, current_user: Current.user, ip_address: Current.ip_address }
     )
-    render json: result
-  rescue StandardError => e
-    raise e unless Rails.env.development?
 
-    handle_error_in_development(e)
+    render json: result
   end
 
   private
 
-  def graphql_context
-    { current_user: current_user, agent_authenticated: agent_authenticated?, request: request }
+  def set_current_request_details
+    Current.ip_address = request.remote_ip
+    Current.user_agent = request.user_agent
+    Current.session = authenticated_session
+    PaperTrail.request.whodunnit = Current.actor&.id
   end
 
-  # Machine-to-machine auth for the external agent worker calling back
-  # (receiveRunResult, resolveRoleCredential) — a static shared secret,
-  # distinct from user JWTs.
-  def agent_authenticated?
-    header_token = request.headers['X-Agent-Token']
-    expected_token = ENV.fetch('AGENT_API_TOKEN', nil)
-    return false if header_token.blank? || expected_token.blank?
+  # An invalid, expired or blocked token is treated as no token, so the
+  # operation itself decides whether it needs a signed-in user.
+  def authenticated_session
+    session = authenticate_with_http_token { |token, _options| Session.find_by_token(token) }
+    return unless session&.usable?
 
-    ActiveSupport::SecurityUtils.secure_compare(header_token, expected_token)
+    session.record_activity!
+    session
   end
 
-  # Handle variables in form data, JSON body, or a blank value
-  def prepare_variables(variables_param)
-    case variables_param
-    when String
-      variables_param.present? ? JSON.parse(variables_param) : {}
-    when Hash
-      variables_param
-    when ActionController::Parameters
-      variables_param.to_unsafe_hash
-    when nil
-      {}
-    else
-      raise ArgumentError, "Unexpected parameter: #{variables_param}"
-    end
+  def render_malformed_variables
+    render json: { errors: [{ message: I18n.t("errors.malformed_request"), extensions: { code: "BAD_REQUEST" } }] },
+           status: :bad_request
   end
 
-  def handle_error_in_development(error)
-    logger.error error.message
-    logger.error error.backtrace.join("\n")
+  def graphql_variables
+    variables = params[:variables]
+    return variables.to_unsafe_h if variables.is_a?(ActionController::Parameters)
+    return JSON.parse(variables) if variables.is_a?(String) && variables.present?
 
-    render json: { errors: [{ message: error.message, backtrace: error.backtrace }], data: {} },
-           status: :internal_server_error
+    {}
   end
 end

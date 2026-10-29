@@ -1,82 +1,76 @@
-source 'https://rubygems.org'
-git_source(:github) { |repo| "https://github.com/#{repo}.git" }
+source "https://rubygems.org"
 
-ruby '3.2.2'
+ruby file: ".ruby-version"
 
-gem 'rails', '~> 7.0.5'
+# Core -------------------------------------------------------------------
+gem "bootsnap", require: false
+gem "pg", "~> 1.6"
+gem "puma", ">= 7.0"
+gem "rails", "~> 8.1.4"
+gem "tzinfo-data", platforms: %i[windows jruby]
 
-# Rails 7.0's postgresql adapter calls JSON.generate with a `quirks_mode` kwarg
-# that json >= 2.7 removed; pin to the last compatible release.
-gem 'json', '~> 2.6.3'
+# GraphQL API ------------------------------------------------------------
+gem "apollo_upload_server", "~> 2.1"
+gem "graphql", "~> 2.6"
 
-# Use postgresql as the database for Active Record
-gem 'pg', '~> 1.1'
+# Authentication (has_secure_password) and authorization -----------------
+gem "action_policy", "~> 0.7"
+gem "bcrypt", "~> 3.1"
 
-# Use the Puma web server [https://github.com/puma/puma]
-gem 'puma', '~> 5.0'
+# Background jobs (Sidekiq only) and cache --------------------------------
+gem "redis", "~> 5.4"
+gem "sidekiq", "~> 8.1"
 
-# Redis for Sidekiq / caching
-gem 'redis'
+# Feature flags -----------------------------------------------------------
+gem "flipper", "~> 1.4"
+gem "flipper-redis", "~> 1.4"
+gem "flipper-ui", "~> 1.4"
+# Phone validation and E.164 formatting (pinned: 0.10.28 was a day old when added).
+gem "phonelib", "0.10.27"
+# SMS through Twilio (official SDK); 7.12 was 9 days old when added.
+gem "twilio-ruby", "~> 7.11.3"
 
-# Password hashing for Devise
-gem 'bcrypt', '~> 3.1.7'
+# Files ------------------------------------------------------------------
+gem "active_storage_validations", "~> 4.1"
+gem "aws-sdk-s3", "~> 1.200", require: false
 
-# Auth
-gem 'devise'
-gem 'jwt'
+# Pagination, audit trail, migration safety ------------------------------
+gem "pagy", "~> 43.7"
+gem "paper_trail", "~> 17.0"
+gem "strong_migrations", "~> 2.8"
 
-# Business-logic layer (mirrors learnerpass-api's interactor pattern)
-gem 'interactor', '~> 3.0'
+# HTTP hardening ---------------------------------------------------------
+gem "rack-attack", "~> 6.8"
+gem "rack-cors", "~> 3.0"
 
-# GraphQL API
-gem 'graphql'
-
-# Multipart file uploads through GraphQL mutations (screenshot evidence)
-gem 'apollo_upload_server', '2.1.0'
-
-# State machine for Run / ScopeFeature lifecycle
-gem 'aasm'
-
-# Background jobs
-gem 'sidekiq', '~> 6.5'
-gem 'sidekiq-cron'
-
-# Pagination (offset-based, matches reference project convention)
-gem 'kaminari'
-
-# Evidence storage (screenshots, console logs)
-gem 'aws-sdk-s3', '~> 1'
-
-# GitHub App integration (contents:read only)
-gem 'octokit'
-
-# ClickUp REST client + agent-worker callbacks
-gem 'httparty'
-
-# CORS for the separately-hosted frontend
-gem 'rack-cors'
-
-# Env config (config/application.yml, matches learnerpass-api)
-gem 'figaro'
-
-# Windows does not include zoneinfo files, so bundle the tzinfo-data gem
-gem 'tzinfo-data', platforms: %i[mingw mswin x64_mingw jruby]
-
-# Reduces boot times through caching; required in config/boot.rb
-gem 'bootsnap', require: false
+# Error tracking (no-op until SENTRY_DSN is set) -------------------------
+gem "sentry-rails", "~> 7.1"
+gem "sentry-ruby", "~> 7.1"
 
 group :development, :test do
-  gem 'debug', platforms: %i[mri mingw x64_mingw]
-  gem 'factory_bot_rails'
-  gem 'rspec-rails', '~> 5.0'
-  gem 'rubocop', require: false
-  gem 'rubocop-rails', require: false
-  gem 'rubocop-rspec', require: false
-  gem 'shoulda-matchers', '~> 5.0'
-  gem 'simplecov', require: false
-  gem 'webmock'
+  gem "brakeman", require: false
+  gem "bullet", "~> 8.3"
+  gem "bundler-audit", require: false
+  gem "debug", platforms: %i[mri windows], require: "debug/prelude"
+  gem "dotenv-rails", "~> 3.1"
+  gem "factory_bot_rails", "~> 6.5"
+  gem "faker", "~> 3.5"
+  gem "rspec-rails", "~> 8.0"
+  gem "rubocop", require: false
+  gem "rubocop-factory_bot", require: false
+  gem "rubocop-graphql", require: false
+  gem "rubocop-rails", require: false
+  gem "rubocop-rspec", require: false
+  gem "rubocop-rspec_rails", require: false
 end
 
 group :development do
-  gem 'graphiql-rails'
+  # Browser inbox for development email at /letter_opener.
+  gem "letter_opener_web", "~> 3.0"
+end
+
+group :test do
+  gem "shoulda-matchers", "~> 7.0"
+  gem "simplecov", require: false
+  gem "webmock", "~> 3.25"
 end
