@@ -26,7 +26,7 @@ bundle exec bundle-audit check --update
 bin/rails graphql:schema:idl   # after any API change; commit schema.graphql
 ```
 
-There is no CI yet; run these before pushing.
+`.github/workflows/ci.yml` runs rubocop, brakeman, the dependency audit and rspec (which also fails when `schema.graphql` is out of date) on every push and pull request to `main` and `staging`. Run them before pushing.
 
 ## How it fits together
 
